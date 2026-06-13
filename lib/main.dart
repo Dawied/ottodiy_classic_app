@@ -49,6 +49,7 @@ class _MainAppState extends State<MainApp> {
         : BluetoothOffScreen(adapterState: _adapterState);
 
     return MaterialApp(
+      title: 'Otto DIY Classic',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData(

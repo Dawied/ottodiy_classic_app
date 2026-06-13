@@ -1,11 +1,11 @@
 {
-    "name": "ottodiy_flutter",
-    "short_name": "ottodiy_flutter",
+    "name": "Otto DIY Classic",
+    "short_name": "Otto DIY Classic",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Otto DIY Classic app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
