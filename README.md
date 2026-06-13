@@ -1,6 +1,6 @@
 # Otto DIY Classic App
 
-A replacement for the official Otto DIY app. Mainly to make it more responsive for mobile devices.
+A replacement flutter app for the official Otto DIY app. Mainly to make it more responsive for mobile devices.
 
 ## Features
 
