@@ -16,3 +16,7 @@ A replacement flutter app for the official Otto DIY app. Mainly to make it more 
 Though this will work with the old OttoS_BLE sketch, some of the features only work with the supplied new firmware OttoS_BLE_v2.ino that is located in the firmware folder.
 
 Open OttoS_BLE_v2.ino in the Arduino IDE, install the OttoDIY library via the library manager and upload it to your microcontroller.
+
+## Example page
+
+You can see an example of the running app here: https://dawied.github.io/ottodiy_classic_app/
