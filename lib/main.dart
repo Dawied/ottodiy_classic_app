@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'utils/download_helper.dart';
 
 void main() {
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
@@ -1047,13 +1048,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           border: Border.all(color: Colors.white10),
                         ),
                         child: SingleChildScrollView(
-                          child: Opacity(
-                            opacity: isConnected ? 1.0 : 0.4,
-                            child: AbsorbPointer(
-                              absorbing: !isConnected,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Opacity(
+                                opacity: isConnected ? 1.0 : 0.4,
+                                child: AbsorbPointer(
+                                  absorbing: !isConnected,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
                                   const Text(
                                     'WALK',
                                     style: TextStyle(
@@ -1444,65 +1448,104 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 24),
-                                  const Text(
-                                    'UTILITIES',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      _SmallButton(
-                                        _btManager.lastDistance != null
-                                            ? 'Distance: ${_btManager.lastDistance!.toStringAsFixed(0)} cm'
-                                            : 'Distance',
-                                        Icons.sensors,
-                                        Colors.tealAccent,
-                                        () => _btManager
-                                            .toggleUltrasoundPolling(),
-                                        isActive:
-                                            _btManager.isPollingUltrasound,
-                                      ),
-                                      _SmallButton(
-                                        'Walk Test',
-                                        Icons.directions_walk,
-                                        Colors.pinkAccent,
-                                        () => _btManager.sendCommand(
-                                          'walk_test2\n',
-                                        ),
-                                      ),
-                                      _SmallButton(
-                                        'Calibrate',
-                                        Icons.build,
-                                        Colors.orangeAccent,
-                                        () {
-                                          showDialog(
-                                            context: context,
-                                            barrierDismissible: false,
-                                            builder: (context) =>
-                                                _CalibrationDialog(
-                                                  btManager: _btManager,
-                                                ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
+                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'UTILITIES',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              Opacity(
+                                opacity: isConnected ? 1.0 : 0.4,
+                                child: AbsorbPointer(
+                                  absorbing: !isConnected,
+                                  child: _SmallButton(
+                                    _btManager.lastDistance != null
+                                        ? 'Distance: ${_btManager.lastDistance!.toStringAsFixed(0)} cm'
+                                        : 'Distance',
+                                    Icons.sensors,
+                                    Colors.tealAccent,
+                                    () => _btManager
+                                        .toggleUltrasoundPolling(),
+                                    isActive:
+                                        _btManager.isPollingUltrasound,
+                                  ),
+                                ),
+                              ),
+                              Opacity(
+                                opacity: isConnected ? 1.0 : 0.4,
+                                child: AbsorbPointer(
+                                  absorbing: !isConnected,
+                                  child: _SmallButton(
+                                    'Walk Test',
+                                    Icons.directions_walk,
+                                    Colors.pinkAccent,
+                                    () => _btManager.sendCommand(
+                                      'walk_test2\n',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Opacity(
+                                opacity: isConnected ? 1.0 : 0.4,
+                                child: AbsorbPointer(
+                                  absorbing: !isConnected,
+                                  child: _SmallButton(
+                                    'Calibrate',
+                                    Icons.build,
+                                    Colors.orangeAccent,
+                                    () {
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (context) =>
+                                            _CalibrationDialog(
+                                              btManager: _btManager,
+                                            ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              _SmallButton(
+                                'Get Arduino Code',
+                                Icons.download,
+                                Colors.lightBlueAccent,
+                                () {
+                                  DownloadHelper.downloadFile(
+                                    'https://github.com/Dawied/ottodiy_classic_app/blob/main/firmware/OttoS_BLE_v2/OttoS_BLE_v2.ino',
+                                    'OttoS_BLE_v2.ino',
+                                  ).catchError((e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Download failed: $e'),
+                                        ),
+                                      );
+                                    }
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
+                  ),
+                ),
                     // Console / Serial Logs
                     if (_isConsoleVisible) ...[
                       const SizedBox(height: 16),
