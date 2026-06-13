@@ -203,6 +203,21 @@ class BluetoothManager extends ChangeNotifier {
   bool get isPollingUltrasound => _isPollingUltrasound;
   Timer? _ultrasoundPollTimer;
 
+  int _speedIndex = 2; // Default to speed index 2 (1000 ms)
+  int get speedIndex => _speedIndex;
+
+  set speedIndex(int value) {
+    if (value >= 0 && value <= 5) {
+      _speedIndex = value;
+      notifyListeners();
+
+      // If a mode is active, dynamically update its speed on the robot
+      if (_activeMode != null) {
+        sendCommand('$_activeMode$_speedIndex\n');
+      }
+    }
+  }
+
   BluetoothCharacteristic? _writeCharacteristic;
 
   bool _isConnecting = false;
@@ -661,6 +676,25 @@ class _HomeScreenState extends State<HomeScreen> {
   final BluetoothManager _btManager = BluetoothManager();
   bool _isConsoleVisible = false;
 
+  String _getSpeedLabel(int index) {
+    switch (index) {
+      case 0:
+        return 'Very Slow (3.0s)';
+      case 1:
+        return 'Slow (2.0s)';
+      case 2:
+        return 'Normal (1.0s)';
+      case 3:
+        return 'Fast (0.75s)';
+      case 4:
+        return 'Very Fast (0.5s)';
+      case 5:
+        return 'Turbo (0.25s)';
+      default:
+        return 'Normal';
+    }
+  }
+
   void _showConnectionModal() {
     if (!_btManager.isScanning && _btManager.connectedDevice == null) {
       _btManager.startScan();
@@ -1067,8 +1101,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     _JoystickButton(
                                       icon: Icons.keyboard_arrow_up,
                                       color: const Color(0xFF00E5FF),
-                                      onPressed: () =>
-                                          _btManager.sendCommand('forward2\n'),
+                                      onPressed: () => _btManager
+                                          .sendCommand('forward${_btManager.speedIndex}\n'),
                                     ),
                                     const SizedBox(height: 8),
                                     // Middle Row
@@ -1079,23 +1113,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _JoystickButton(
                                           icon: Icons.keyboard_arrow_left,
                                           color: const Color(0xFF00E5FF),
-                                          onPressed: () =>
-                                              _btManager.sendCommand('left2\n'),
+                                          onPressed: () => _btManager
+                                              .sendCommand('left${_btManager.speedIndex}\n'),
                                         ),
                                         const SizedBox(width: 8),
                                         _JoystickButton(
                                           icon: Icons.stop_circle_outlined,
                                           color: Colors.redAccent,
                                           isCenter: true,
-                                          onPressed: () =>
-                                              _btManager.sendCommand('stop2\n'),
+                                          onPressed: () => _btManager
+                                              .sendCommand('stop${_btManager.speedIndex}\n'),
                                         ),
                                         const SizedBox(width: 8),
                                         _JoystickButton(
                                           icon: Icons.keyboard_arrow_right,
                                           color: const Color(0xFF00E5FF),
                                           onPressed: () => _btManager
-                                              .sendCommand('right2\n'),
+                                              .sendCommand('right${_btManager.speedIndex}\n'),
                                         ),
                                       ],
                                     ),
@@ -1104,11 +1138,47 @@ class _HomeScreenState extends State<HomeScreen> {
                                     _JoystickButton(
                                       icon: Icons.keyboard_arrow_down,
                                       color: const Color(0xFF00E5FF),
-                                      onPressed: () =>
-                                          _btManager.sendCommand('backward2\n'),
+                                      onPressed: () => _btManager
+                                          .sendCommand('backward${_btManager.speedIndex}\n'),
                                     ),
                                   ],
                                 ),
+                              ),
+                              // Speed Slider
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Icon(Icons.speed, color: Colors.grey, size: 20),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'SPEED',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _getSpeedLabel(_btManager.speedIndex),
+                                    style: const TextStyle(
+                                      color: Color(0xFF00E5FF),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Slider(
+                                value: _btManager.speedIndex.toDouble(),
+                                min: 0,
+                                max: 5,
+                                divisions: 5,
+                                activeColor: const Color(0xFF00E5FF),
+                                inactiveColor: Colors.white10,
+                                onChanged: (value) {
+                                  _btManager.speedIndex = value.round();
+                                },
                               ),
                               const SizedBox(height: 24),
                               const Text(
@@ -1214,10 +1284,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onPressed: () {
                                             if (_btManager.activeMode ==
                                                 'avoidance') {
-                                              _btManager.sendCommand('stop2\n');
+                                              _btManager.sendCommand('stop${_btManager.speedIndex}\n');
                                             } else {
                                               _btManager.sendCommand(
-                                                'avoidance2\n',
+                                                'avoidance${_btManager.speedIndex}\n',
                                               );
                                             }
                                           },
@@ -1247,10 +1317,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                           onPressed: () {
                                             if (_btManager.activeMode ==
                                                 'force') {
-                                              _btManager.sendCommand('stop2\n');
+                                              _btManager.sendCommand('stop${_btManager.speedIndex}\n');
                                             } else {
                                               _btManager.sendCommand(
-                                                'force2\n',
+                                                'force${_btManager.speedIndex}\n',
                                               );
                                             }
                                           },
