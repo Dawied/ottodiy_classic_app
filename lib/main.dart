@@ -575,6 +575,7 @@ class BluetoothManager extends ChangeNotifier {
         cmdClean.startsWith('love') ||
         cmdClean.startsWith('fretful') ||
         cmdClean.startsWith('magic') ||
+        cmdClean.startsWith('sing') ||
         cmdClean.startsWith('walk_test') ||
         cmdClean.startsWith('ultrasound')) {
       _activeMode = null;
@@ -1254,6 +1255,137 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Icons.auto_awesome,
                                     Colors.amber,
                                     () => _btManager.sendCommand('magic2\n'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              const Text(
+                                'SING',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _SmallButton(
+                                    'Connection',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 0\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Disconnection',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 1\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Button Pushed',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 2\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Mode 1',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 3\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Mode 2',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 4\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Mode 3',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 5\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Surprise',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 6\n'),
+                                  ),
+                                  _SmallButton(
+                                    'OhOoh',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 7\n'),
+                                  ),
+                                  _SmallButton(
+                                    'OhOoh 2',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 8\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Cuddly',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 9\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Sleeping',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 10\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Happy',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 11\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Super Happy',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 12\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Happy Short',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 13\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Sad',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 14\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Confused',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 15\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Fart 1',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 16\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Fart 2',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 17\n'),
+                                  ),
+                                  _SmallButton(
+                                    'Fart 3',
+                                    Icons.music_note,
+                                    const Color(0xFFFFB300),
+                                    () => _btManager.sendCommand('sing 18\n'),
                                   ),
                                 ],
                               ),
