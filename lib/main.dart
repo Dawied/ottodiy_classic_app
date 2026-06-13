@@ -422,8 +422,8 @@ class BluetoothManager extends ChangeNotifier {
             if (uuid.contains("ffe1") || uuid.contains("6e400002")) {
               _writeCharacteristic = characteristic;
               break; // Found preferred serial characteristic
-            } else if (_writeCharacteristic == null) {
-              _writeCharacteristic = characteristic; // Fallback
+            } else {
+              _writeCharacteristic ??= characteristic;
             }
           }
         }
@@ -452,8 +452,8 @@ class BluetoothManager extends ChangeNotifier {
             if (uuid.contains("ffe1") || uuid.contains("6e400003")) {
               notifyCharacteristic = characteristic;
               break;
-            } else if (notifyCharacteristic == null) {
-              notifyCharacteristic = characteristic;
+            } else {
+              notifyCharacteristic ??= characteristic;
             }
           }
         }
@@ -1013,601 +1013,657 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 12.0,
                 ),
                 child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Top robot status panel
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 24,
-                    horizontal: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isConnected
-                          ? const Color(0xFF00E5FF).withValues(alpha: 0.3)
-                          : Colors.white10,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      // Beautiful robot pulse visualization
-                      _RobotVisualizer(
-                        isConnected: isConnected,
-                        onTap: isConnected
-                            ? () => _btManager.disconnect()
-                            : _showConnectionModal,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top robot status panel
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 24,
+                        horizontal: 16,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        isConnected ? 'OTTO CONNECTED' : 'OTTO DISCONNECTED',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isConnected
-                              ? const Color(0xFF00E5FF)
-                              : Colors.grey,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isConnected
-                            ? 'Device: ${_btManager.connectedDevice!.name}'
-                            : 'Connect via Bluetooth to start controlling',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 13),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Controls Grid
-                Expanded(
-                  flex: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Opacity(
-                      opacity: isConnected ? 1.0 : 0.4,
-                      child: AbsorbPointer(
-                        absorbing: !isConnected,
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'WALK',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // Joystick D-Pad Layout
-                              Align(
-                                alignment: Alignment.center,
-                                child: Column(
-                                  children: [
-                                    // Up
-                                    _JoystickButton(
-                                      icon: Icons.keyboard_arrow_up,
-                                      color: const Color(0xFF00E5FF),
-                                      onPressed: () => _btManager
-                                          .sendCommand('forward${_btManager.speedIndex}\n'),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Middle Row
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        _JoystickButton(
-                                          icon: Icons.keyboard_arrow_left,
-                                          color: const Color(0xFF00E5FF),
-                                          onPressed: () => _btManager
-                                              .sendCommand('left${_btManager.speedIndex}\n'),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _JoystickButton(
-                                          icon: Icons.stop_circle_outlined,
-                                          color: Colors.redAccent,
-                                          isCenter: true,
-                                          onPressed: () => _btManager
-                                              .sendCommand('stop${_btManager.speedIndex}\n'),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _JoystickButton(
-                                          icon: Icons.keyboard_arrow_right,
-                                          color: const Color(0xFF00E5FF),
-                                          onPressed: () => _btManager
-                                              .sendCommand('right${_btManager.speedIndex}\n'),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Down
-                                    _JoystickButton(
-                                      icon: Icons.keyboard_arrow_down,
-                                      color: const Color(0xFF00E5FF),
-                                      onPressed: () => _btManager
-                                          .sendCommand('backward${_btManager.speedIndex}\n'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Speed Slider
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  const Icon(Icons.speed, color: Colors.grey, size: 20),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'SPEED',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    _getSpeedLabel(_btManager.speedIndex),
-                                    style: const TextStyle(
-                                      color: Color(0xFF00E5FF),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Slider(
-                                value: _btManager.speedIndex.toDouble(),
-                                min: 0,
-                                max: 5,
-                                divisions: 5,
-                                activeColor: const Color(0xFF00E5FF),
-                                inactiveColor: Colors.white10,
-                                onChanged: (value) {
-                                  _btManager.speedIndex = value.round();
-                                },
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'GESTURES',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _SmallButton(
-                                    'Happy',
-                                    Icons.mood,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('happy2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Victory',
-                                    Icons.emoji_events,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('victory2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Sad',
-                                    Icons.mood_bad,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('sad2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Sleep',
-                                    Icons.hotel,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('sleeping2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Confused',
-                                    Icons.question_mark,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('confused2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fail',
-                                    Icons.error_outline,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('fail2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fart',
-                                    Icons.air,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('fart2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Love',
-                                    Icons.favorite,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('love2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fretful',
-                                    Icons.warning_amber_rounded,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('fretful2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Magic',
-                                    Icons.auto_awesome,
-                                    Colors.amber,
-                                    () => _btManager.sendCommand('magic2\n'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'SING',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _SmallButton(
-                                    'Connection',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 0\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Disconnection',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 1\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Button Pushed',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Mode 1',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 3\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Mode 2',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 4\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Mode 3',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 5\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Surprise',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 6\n'),
-                                  ),
-                                  _SmallButton(
-                                    'OhOoh',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 7\n'),
-                                  ),
-                                  _SmallButton(
-                                    'OhOoh 2',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 8\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Cuddly',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 9\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Sleeping',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 10\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Happy',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 11\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Super Happy',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 12\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Happy Short',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 13\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Sad',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 14\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Confused',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 15\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fart 1',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 16\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fart 2',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 17\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Fart 3',
-                                    Icons.music_note,
-                                    const Color(0xFFFFB300),
-                                    () => _btManager.sendCommand('sing 18\n'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'MODES',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        _ControlButton(
-                                          icon: Icons.remove_red_eye,
-                                          label: 'AVOIDANCE',
-                                          color: Colors.lightGreenAccent,
-                                          isActive:
-                                              _btManager.activeMode ==
-                                              'avoidance',
-                                          onPressed: () {
-                                            if (_btManager.activeMode ==
-                                                'avoidance') {
-                                              _btManager.sendCommand('stop${_btManager.speedIndex}\n');
-                                            } else {
-                                              _btManager.sendCommand(
-                                                'avoidance${_btManager.speedIndex}\n',
-                                              );
-                                            }
-                                          },
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Otto starts walking and avoids obstacles',
-                                          style: TextStyle(
-                                            color: Colors.grey[400],
-                                            fontSize: 11,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        _ControlButton(
-                                          icon: Icons.sports_martial_arts,
-                                          label: 'USE FORCE',
-                                          color: Colors.lightBlueAccent,
-                                          isActive:
-                                              _btManager.activeMode == 'force',
-                                          onPressed: () {
-                                            if (_btManager.activeMode ==
-                                                'force') {
-                                              _btManager.sendCommand('stop${_btManager.speedIndex}\n');
-                                            } else {
-                                              _btManager.sendCommand(
-                                                'force${_btManager.speedIndex}\n',
-                                              );
-                                            }
-                                          },
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Move your hand in front of Otto to have it react to it',
-                                          style: TextStyle(
-                                            color: Colors.grey[400],
-                                            fontSize: 11,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'UTILITIES',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  _SmallButton(
-                                    _btManager.lastDistance != null
-                                        ? 'Distance: ${_btManager.lastDistance!.toStringAsFixed(0)} cm'
-                                        : 'Distance',
-                                    Icons.sensors,
-                                    Colors.tealAccent,
-                                    () => _btManager.toggleUltrasoundPolling(),
-                                    isActive: _btManager.isPollingUltrasound,
-                                  ),
-                                  _SmallButton(
-                                    'Walk Test',
-                                    Icons.directions_walk,
-                                    Colors.pinkAccent,
-                                    () =>
-                                        _btManager.sendCommand('walk_test2\n'),
-                                  ),
-                                  _SmallButton(
-                                    'Calibrate',
-                                    Icons.build,
-                                    Colors.orangeAccent,
-                                    () {
-                                      showDialog(
-                                        context: context,
-                                        barrierDismissible: false,
-                                        builder: (context) =>
-                                            _CalibrationDialog(
-                                              btManager: _btManager,
-                                            ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // Console / Serial Logs
-                if (_isConsoleVisible) ...[
-                  const SizedBox(height: 16),
-                  Expanded(
-                    flex: 2,
-                    child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF020617),
+                        color: const Color(0xFF111827),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white10),
+                        border: Border.all(
+                          color: isConnected
+                              ? const Color(0xFF00E5FF).withValues(alpha: 0.3)
+                              : Colors.white10,
+                          width: 1.5,
+                        ),
                       ),
-                      padding: const EdgeInsets.all(12),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'CONSOLE LOGS',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    icon: const Icon(
-                                      Icons.close,
-                                      color: Colors.grey,
-                                      size: 16,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isConsoleVisible = false;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
+                          // Beautiful robot pulse visualization
+                          _RobotVisualizer(
+                            isConnected: isConnected,
+                            onTap: isConnected
+                                ? () => _btManager.disconnect()
+                                : _showConnectionModal,
                           ),
-                          const SizedBox(height: 6),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: _btManager.consoleLogs.length,
-                              itemBuilder: (context, index) {
-                                final log = _btManager.consoleLogs[index];
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 2.0,
-                                  ),
-                                  child: Text(
-                                    log,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
-                                      color: Color(
-                                        0xFF34D399,
-                                      ), // terminal green
-                                    ),
-                                  ),
-                                );
-                              },
+                          const SizedBox(height: 16),
+                          Text(
+                            isConnected
+                                ? 'OTTO CONNECTED'
+                                : 'OTTO DISCONNECTED',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isConnected
+                                  ? const Color(0xFF00E5FF)
+                                  : Colors.grey,
+                              letterSpacing: 1.2,
                             ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isConnected
+                                ? 'Device: ${_btManager.connectedDevice!.name}'
+                                : 'Connect via Bluetooth to start controlling',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              ],
+                    const SizedBox(height: 16),
+
+                    // Controls Grid
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111827),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Opacity(
+                          opacity: isConnected ? 1.0 : 0.4,
+                          child: AbsorbPointer(
+                            absorbing: !isConnected,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const Text(
+                                    'WALK',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  // Joystick D-Pad Layout
+                                  Align(
+                                    alignment: Alignment.center,
+                                    child: Column(
+                                      children: [
+                                        // Up
+                                        _JoystickButton(
+                                          icon: Icons.keyboard_arrow_up,
+                                          color: const Color(0xFF00E5FF),
+                                          onPressed: () => _btManager.sendCommand(
+                                            'forward${_btManager.speedIndex}\n',
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Middle Row
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            _JoystickButton(
+                                              icon: Icons.keyboard_arrow_left,
+                                              color: const Color(0xFF00E5FF),
+                                              onPressed: () =>
+                                                  _btManager.sendCommand(
+                                                    'left${_btManager.speedIndex}\n',
+                                                  ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _JoystickButton(
+                                              icon: Icons.stop_circle_outlined,
+                                              color: Colors.redAccent,
+                                              isCenter: true,
+                                              onPressed: () =>
+                                                  _btManager.sendCommand(
+                                                    'stop${_btManager.speedIndex}\n',
+                                                  ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _JoystickButton(
+                                              icon: Icons.keyboard_arrow_right,
+                                              color: const Color(0xFF00E5FF),
+                                              onPressed: () =>
+                                                  _btManager.sendCommand(
+                                                    'right${_btManager.speedIndex}\n',
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Down
+                                        _JoystickButton(
+                                          icon: Icons.keyboard_arrow_down,
+                                          color: const Color(0xFF00E5FF),
+                                          onPressed: () => _btManager.sendCommand(
+                                            'backward${_btManager.speedIndex}\n',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Speed Slider
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.speed,
+                                        color: Colors.grey,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        'SPEED',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        _getSpeedLabel(_btManager.speedIndex),
+                                        style: const TextStyle(
+                                          color: Color(0xFF00E5FF),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Slider(
+                                    value: _btManager.speedIndex.toDouble(),
+                                    min: 0,
+                                    max: 5,
+                                    divisions: 5,
+                                    activeColor: const Color(0xFF00E5FF),
+                                    inactiveColor: Colors.white10,
+                                    onChanged: (value) {
+                                      _btManager.speedIndex = value.round();
+                                    },
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'GESTURES',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _SmallButton(
+                                        'Happy',
+                                        Icons.mood,
+                                        Colors.amber,
+                                        () =>
+                                            _btManager.sendCommand('happy2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Victory',
+                                        Icons.emoji_events,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand(
+                                          'victory2\n',
+                                        ),
+                                      ),
+                                      _SmallButton(
+                                        'Sad',
+                                        Icons.mood_bad,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand('sad2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Sleep',
+                                        Icons.hotel,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand(
+                                          'sleeping2\n',
+                                        ),
+                                      ),
+                                      _SmallButton(
+                                        'Confused',
+                                        Icons.question_mark,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand(
+                                          'confused2\n',
+                                        ),
+                                      ),
+                                      _SmallButton(
+                                        'Fail',
+                                        Icons.error_outline,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand('fail2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Fart',
+                                        Icons.air,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand('fart2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Love',
+                                        Icons.favorite,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand('love2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Fretful',
+                                        Icons.warning_amber_rounded,
+                                        Colors.amber,
+                                        () => _btManager.sendCommand(
+                                          'fretful2\n',
+                                        ),
+                                      ),
+                                      _SmallButton(
+                                        'Magic',
+                                        Icons.auto_awesome,
+                                        Colors.amber,
+                                        () =>
+                                            _btManager.sendCommand('magic2\n'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'SING',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _SmallButton(
+                                        'Connection',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 0\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Disconnection',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 1\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Button Pushed',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 2\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Mode 1',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 3\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Mode 2',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 4\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Mode 3',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 5\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Surprise',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 6\n'),
+                                      ),
+                                      _SmallButton(
+                                        'OhOoh',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 7\n'),
+                                      ),
+                                      _SmallButton(
+                                        'OhOoh 2',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 8\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Cuddly',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 9\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Sleeping',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 10\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Happy',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 11\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Super Happy',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 12\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Happy Short',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 13\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Sad',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 14\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Confused',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 15\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Fart 1',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 16\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Fart 2',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 17\n'),
+                                      ),
+                                      _SmallButton(
+                                        'Fart 3',
+                                        Icons.music_note,
+                                        const Color(0xFFFFB300),
+                                        () =>
+                                            _btManager.sendCommand('sing 18\n'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'MODES',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          children: [
+                                            _ControlButton(
+                                              icon: Icons.remove_red_eye,
+                                              label: 'AVOIDANCE',
+                                              color: Colors.lightGreenAccent,
+                                              isActive:
+                                                  _btManager.activeMode ==
+                                                  'avoidance',
+                                              onPressed: () {
+                                                if (_btManager.activeMode ==
+                                                    'avoidance') {
+                                                  _btManager.sendCommand(
+                                                    'stop${_btManager.speedIndex}\n',
+                                                  );
+                                                } else {
+                                                  _btManager.sendCommand(
+                                                    'avoidance${_btManager.speedIndex}\n',
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'Otto starts walking and avoids obstacles',
+                                              style: TextStyle(
+                                                color: Colors.grey[400],
+                                                fontSize: 11,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          children: [
+                                            _ControlButton(
+                                              icon: Icons.sports_martial_arts,
+                                              label: 'USE FORCE',
+                                              color: Colors.lightBlueAccent,
+                                              isActive:
+                                                  _btManager.activeMode ==
+                                                  'force',
+                                              onPressed: () {
+                                                if (_btManager.activeMode ==
+                                                    'force') {
+                                                  _btManager.sendCommand(
+                                                    'stop${_btManager.speedIndex}\n',
+                                                  );
+                                                } else {
+                                                  _btManager.sendCommand(
+                                                    'force${_btManager.speedIndex}\n',
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'Move your hand in front of Otto to have it react to it',
+                                              style: TextStyle(
+                                                color: Colors.grey[400],
+                                                fontSize: 11,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'UTILITIES',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _SmallButton(
+                                        _btManager.lastDistance != null
+                                            ? 'Distance: ${_btManager.lastDistance!.toStringAsFixed(0)} cm'
+                                            : 'Distance',
+                                        Icons.sensors,
+                                        Colors.tealAccent,
+                                        () => _btManager
+                                            .toggleUltrasoundPolling(),
+                                        isActive:
+                                            _btManager.isPollingUltrasound,
+                                      ),
+                                      _SmallButton(
+                                        'Walk Test',
+                                        Icons.directions_walk,
+                                        Colors.pinkAccent,
+                                        () => _btManager.sendCommand(
+                                          'walk_test2\n',
+                                        ),
+                                      ),
+                                      _SmallButton(
+                                        'Calibrate',
+                                        Icons.build,
+                                        Colors.orangeAccent,
+                                        () {
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (context) =>
+                                                _CalibrationDialog(
+                                                  btManager: _btManager,
+                                                ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Console / Serial Logs
+                    if (_isConsoleVisible) ...[
+                      const SizedBox(height: 16),
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF020617),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'CONSOLE LOGS',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        icon: const Icon(
+                                          Icons.close,
+                                          color: Colors.grey,
+                                          size: 16,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isConsoleVisible = false;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemCount: _btManager.consoleLogs.length,
+                                  itemBuilder: (context, index) {
+                                    final log = _btManager.consoleLogs[index];
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2.0,
+                                      ),
+                                      child: Text(
+                                        log,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 12,
+                                          color: Color(
+                                            0xFF34D399,
+                                          ), // terminal green
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }
