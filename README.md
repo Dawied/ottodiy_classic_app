@@ -1,6 +1,7 @@
 # Otto DIY Classic App
 
-A replacement flutter app for the official Otto DIY app. Mainly to make it more responsive for mobile devices.
+A replacement flutter app for the Otto DIY Arduino based project https://www.ottodiy.com/
+Mainly build to make it more responsive than the original web based app.
 
 ## Features
 
@@ -13,7 +14,7 @@ A replacement flutter app for the official Otto DIY app. Mainly to make it more 
 
 ## Arduino
 
-Though this will work with the old OttoS_BLE sketch, some of the features only work with the supplied new firmware OttoS_BLE_v2.ino that is located in the firmware folder.
+Although this will work with the original OttoS_BLE sketch, some of the features only work with the supplied new firmware OttoS_BLE_v2.ino that is located in the firmware folder.
 
 Open OttoS_BLE_v2.ino in the Arduino IDE, install the OttoDIY library via the library manager and upload it to your microcontroller.
 
