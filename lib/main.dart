@@ -1331,21 +1331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Icons.music_note,
                                         const Color(0xFFFFB300),
                                         () =>
-                                            _btManager.sendCommand('sing 11\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Super Happy',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
                                             _btManager.sendCommand('sing 12\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Happy Short',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 13\n'),
                                       ),
                                       _SmallButton(
                                         'Sad',
@@ -1362,25 +1348,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                             _btManager.sendCommand('sing 15\n'),
                                       ),
                                       _SmallButton(
-                                        'Fart 1',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 16\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Fart 2',
+                                        'Fart',
                                         Icons.music_note,
                                         const Color(0xFFFFB300),
                                         () =>
                                             _btManager.sendCommand('sing 17\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Fart 3',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 18\n'),
                                       ),
                                     ],
                                   ),
