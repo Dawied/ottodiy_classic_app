@@ -1062,7 +1062,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       letterSpacing: 1.0,
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 8),
                                   // Joystick and Speed Slider Side-by-Side
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1189,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 12),
                                   const Text(
                                     'GESTURES',
                                     style: TextStyle(
