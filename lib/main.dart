@@ -982,9 +982,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     : _showConnectionModal,
               ),
             ),
-            title: const Text(
-              'OTTO DIY',
-              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5),
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'OTTO DIY',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isConnected
+                      ? 'Connected: ${_btManager.connectedDevice!.name}'
+                      : 'Disconnected',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: isConnected ? const Color(0xFF00E5FF) : Colors.grey,
+                  ),
+                ),
+              ],
             ),
             actions: [
               IconButton(
@@ -1015,64 +1035,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Top robot status panel
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 24,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111827),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isConnected
-                              ? const Color(0xFF00E5FF).withValues(alpha: 0.3)
-                              : Colors.white10,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // Beautiful robot pulse visualization
-                          _RobotVisualizer(
-                            isConnected: isConnected,
-                            onTap: isConnected
-                                ? () => _btManager.disconnect()
-                                : _showConnectionModal,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            isConnected
-                                ? 'OTTO CONNECTED'
-                                : 'OTTO DISCONNECTED',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isConnected
-                                  ? const Color(0xFF00E5FF)
-                                  : Colors.grey,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isConnected
-                                ? 'Device: ${_btManager.connectedDevice!.name}'
-                                : 'Connect via Bluetooth to start controlling',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 13,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
                     // Controls Grid
                     Expanded(
-                      flex: 4,
+                      flex: 3,
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -1080,11 +1045,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.white10),
                         ),
-                        child: Opacity(
-                          opacity: isConnected ? 1.0 : 0.4,
-                          child: AbsorbPointer(
-                            absorbing: !isConnected,
-                            child: SingleChildScrollView(
+                        child: SingleChildScrollView(
+                          child: Opacity(
+                            opacity: isConnected ? 1.0 : 0.4,
+                            child: AbsorbPointer(
+                              absorbing: !isConnected,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -1098,105 +1063,131 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 20),
-                                  // Joystick D-Pad Layout
-                                  Align(
-                                    alignment: Alignment.center,
-                                    child: Column(
-                                      children: [
-                                        // Up
-                                        _JoystickButton(
-                                          icon: Icons.keyboard_arrow_up,
-                                          color: const Color(0xFF00E5FF),
-                                          onPressed: () => _btManager.sendCommand(
-                                            'forward${_btManager.speedIndex}\n',
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Middle Row
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            _JoystickButton(
-                                              icon: Icons.keyboard_arrow_left,
-                                              color: const Color(0xFF00E5FF),
-                                              onPressed: () =>
-                                                  _btManager.sendCommand(
-                                                    'left${_btManager.speedIndex}\n',
-                                                  ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            _JoystickButton(
-                                              icon: Icons.stop_circle_outlined,
-                                              color: Colors.redAccent,
-                                              isCenter: true,
-                                              onPressed: () =>
-                                                  _btManager.sendCommand(
-                                                    'stop${_btManager.speedIndex}\n',
-                                                  ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            _JoystickButton(
-                                              icon: Icons.keyboard_arrow_right,
-                                              color: const Color(0xFF00E5FF),
-                                              onPressed: () =>
-                                                  _btManager.sendCommand(
-                                                    'right${_btManager.speedIndex}\n',
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Down
-                                        _JoystickButton(
-                                          icon: Icons.keyboard_arrow_down,
-                                          color: const Color(0xFF00E5FF),
-                                          onPressed: () => _btManager.sendCommand(
-                                            'backward${_btManager.speedIndex}\n',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Speed Slider
-                                  const SizedBox(height: 16),
+                                  // Joystick and Speed Slider Side-by-Side
                                   Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
                                     children: [
-                                      const Icon(
-                                        Icons.speed,
-                                        color: Colors.grey,
-                                        size: 20,
+                                      // Joystick D-Pad Layout
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Up
+                                          _JoystickButton(
+                                            icon: Icons.keyboard_arrow_up,
+                                            color: const Color(0xFF00E5FF),
+                                            onPressed: () => _btManager.sendCommand(
+                                              'forward${_btManager.speedIndex}\n',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Middle Row
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              _JoystickButton(
+                                                icon: Icons.keyboard_arrow_left,
+                                                color: const Color(0xFF00E5FF),
+                                                onPressed: () =>
+                                                    _btManager.sendCommand(
+                                                      'left${_btManager.speedIndex}\n',
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              _JoystickButton(
+                                                icon:
+                                                    Icons.stop_circle_outlined,
+                                                color: Colors.redAccent,
+                                                isCenter: true,
+                                                onPressed: () =>
+                                                    _btManager.sendCommand(
+                                                      'stop${_btManager.speedIndex}\n',
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              _JoystickButton(
+                                                icon:
+                                                    Icons.keyboard_arrow_right,
+                                                color: const Color(0xFF00E5FF),
+                                                onPressed: () =>
+                                                    _btManager.sendCommand(
+                                                      'right${_btManager.speedIndex}\n',
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Down
+                                          _JoystickButton(
+                                            icon: Icons.keyboard_arrow_down,
+                                            color: const Color(0xFF00E5FF),
+                                            onPressed: () => _btManager.sendCommand(
+                                              'backward${_btManager.speedIndex}\n',
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        'SPEED',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        _getSpeedLabel(_btManager.speedIndex),
-                                        style: const TextStyle(
-                                          color: Color(0xFF00E5FF),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
+                                      const SizedBox(
+                                        width: 40,
+                                      ), // Spacing between joystick and slider
+                                      // Vertical Speed Slider Column
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.speed,
+                                            color: Colors.grey,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            'SPEED',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.0,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _getSpeedLabel(
+                                              _btManager.speedIndex,
+                                            ),
+                                            style: const TextStyle(
+                                              color: Color(0xFF00E5FF),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 120,
+                                            child: RotatedBox(
+                                              quarterTurns: 3,
+                                              child: Slider(
+                                                value: _btManager.speedIndex
+                                                    .toDouble(),
+                                                min: 0,
+                                                max: 5,
+                                                divisions: 5,
+                                                activeColor: const Color(
+                                                  0xFF00E5FF,
+                                                ),
+                                                inactiveColor: Colors.white10,
+                                                onChanged: (value) {
+                                                  _btManager.speedIndex = value
+                                                      .round();
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
-                                  ),
-                                  Slider(
-                                    value: _btManager.speedIndex.toDouble(),
-                                    min: 0,
-                                    max: 5,
-                                    divisions: 5,
-                                    activeColor: const Color(0xFF00E5FF),
-                                    inactiveColor: Colors.white10,
-                                    onChanged: (value) {
-                                      _btManager.speedIndex = value.round();
-                                    },
                                   ),
                                   const SizedBox(height: 24),
                                   const Text(
@@ -1210,7 +1201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   Wrap(
-                                    spacing: 10,
+                                    spacing: 7,
                                     runSpacing: 10,
                                     children: [
                                       _SmallButton(
@@ -1285,7 +1276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 12),
                                   const Text(
                                     'SING',
                                     style: TextStyle(
@@ -1295,53 +1286,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       letterSpacing: 1.0,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 6),
                                   Wrap(
                                     spacing: 10,
                                     runSpacing: 10,
                                     children: [
-                                      _SmallButton(
-                                        'Connection',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 0\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Disconnection',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 1\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Button Pushed',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 2\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Mode 1',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 3\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Mode 2',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 4\n'),
-                                      ),
-                                      _SmallButton(
-                                        'Mode 3',
-                                        Icons.music_note,
-                                        const Color(0xFFFFB300),
-                                        () =>
-                                            _btManager.sendCommand('sing 5\n'),
-                                      ),
                                       _SmallButton(
                                         'Surprise',
                                         Icons.music_note,
@@ -1585,7 +1534,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (_isConsoleVisible) ...[
                       const SizedBox(height: 16),
                       Expanded(
-                        flex: 2,
+                        flex: 1,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFF020617),
@@ -1780,8 +1729,8 @@ class _JoystickButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         child: Container(
-          width: 65,
-          height: 65,
+          width: 45,
+          height: 45,
           decoration: BoxDecoration(
             color: isCenter
                 ? color.withValues(alpha: 0.1)
@@ -1801,50 +1750,6 @@ class _JoystickButton extends StatelessWidget {
             ],
           ),
           child: Icon(icon, size: 36, color: color),
-        ),
-      ),
-    );
-  }
-}
-
-// Robot Visualizer that glows when connected
-class _RobotVisualizer extends StatelessWidget {
-  final bool isConnected;
-  final VoidCallback? onTap;
-
-  const _RobotVisualizer({required this.isConnected, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final glowColor = isConnected
-        ? const Color(0xFF00E5FF).withValues(alpha: 0.4)
-        : Colors.transparent;
-
-    return _HoverScale(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: glowColor,
-                blurRadius: isConnected ? 25 : 0,
-                spreadRadius: isConnected ? 5 : 0,
-              ),
-            ],
-          ),
-          child: CircleAvatar(
-            radius: 40,
-            backgroundColor: isConnected
-                ? const Color(0xFF00E5FF).withValues(alpha: 0.15)
-                : Colors.white10,
-            child: Icon(
-              isConnected ? Icons.smart_toy : Icons.smart_toy_outlined,
-              size: 44,
-              color: isConnected ? const Color(0xFF00E5FF) : Colors.grey,
-            ),
-          ),
         ),
       ),
     );
