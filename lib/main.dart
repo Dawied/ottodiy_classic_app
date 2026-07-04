@@ -3,15 +3,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'bluetooth_manager.dart';
-import 'widgets/gestures_panel.dart';
-import 'widgets/songs_panel.dart';
-import 'widgets/classic_utilities.dart';
-import 'widgets/wheels_utilities.dart';
-import 'widgets/walk_section.dart';
-import 'widgets/classic_modes_section.dart';
-import 'widgets/drive_section.dart';
-import 'widgets/wheels_modes_section.dart';
 import 'widgets/connection_modal.dart';
+import 'widgets/classic_tab.dart';
+import 'widgets/wheels_tab.dart';
+import 'widgets/console_panel.dart';
 
 void main() {
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
@@ -269,54 +264,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: TabBarView(
                             children: [
-                              // Classic Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Opacity(
-                                      opacity: isConnected ? 1.0 : 0.4,
-                                      child: AbsorbPointer(
-                                        absorbing: !isConnected,
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            WalkSection(btManager: _btManager),
-                                            const SizedBox(height: 12),
-                                            GesturesPanel(
-                                              btManager: _btManager,
-                                            ),
-                                            const SizedBox(height: 12),
-                                            SongsPanel(btManager: _btManager),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    ClassicModesSection(btManager: _btManager),
-                                    const SizedBox(height: 24),
-                                    ClassicUtilities(btManager: _btManager),
-                                  ],
-                                ),
-                              ),
-                              // Wheels Tab
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    DriveSection(btManager: _btManager),
-                                    const SizedBox(height: 24),
-                                    WheelsModesSection(btManager: _btManager),
-                                    const SizedBox(height: 24),
-                                    const WheelsUtilities(),
-                                  ],
-                                ),
-                              ),
+                              ClassicTab(btManager: _btManager),
+                              WheelsTab(btManager: _btManager),
                             ],
                           ),
                         ),
@@ -326,75 +275,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 16),
                         Expanded(
                           flex: 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF020617),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'CONSOLE LOGS',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          icon: const Icon(
-                                            Icons.close,
-                                            color: Colors.grey,
-                                            size: 16,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _isConsoleVisible = false;
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: ListView.builder(
-                                    itemCount: _btManager.consoleLogs.length,
-                                    itemBuilder: (context, index) {
-                                      final log = _btManager.consoleLogs[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 2.0,
-                                        ),
-                                        child: Text(
-                                          log,
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontSize: 12,
-                                            color: Color(
-                                              0xFF34D399,
-                                            ), // terminal green
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
+                          child: ConsolePanel(
+                            btManager: _btManager,
+                            onClose: () {
+                              setState(() {
+                                _isConsoleVisible = false;
+                              });
+                            },
                           ),
                         ),
                       ],
