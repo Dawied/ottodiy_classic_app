@@ -12,6 +12,7 @@
 *    This Sketch was created to control Otto Wheels with the Offical Web Bluetooth Controller for Otto DIY Robots.
 *    For any question about this script you can contact us at education@ottodiy.com
 *    By: Iván R. Artiles
+*    v2 By: David Pront
 */
 
 #include <NimBLEDevice.h>
@@ -31,6 +32,9 @@
 #define ECHO 9
 #define BLE_TX 11
 #define BLE_RX 12
+#include <Otto.h>
+#define BUZZER 13
+Otto Ottobot;
 
 #if not defined(ARDUINO_ARCH_ESP32)  // disable LineFollower ... Esp32 only has one analog ... maybe fix to use with digital line sensors
 int line_sensor_right = A0;
@@ -259,6 +263,7 @@ void setup() {
   bluetooth->begin("OttoDIY");
 
   Serial.begin(9600);
+  Ottobot.init(4, 5, 6, 7, true, BUZZER);
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
 
@@ -343,6 +348,15 @@ void checkBluetooth() {
     Stop();
   } else if (strncmp(buffer, "avoidance", 9) == 0) command = "avoidance";
   else if (strncmp(buffer, "line_follower", 13) == 0) command = "linefollower";
+  else if (strncmp(buffer, "sing", 4) == 0) {
+    command = "";
+    char *p = buffer + 4;
+    while (*p && (*p < '0' || *p > '9')) {
+      p++;
+    }
+    int songName = atoi(p);
+    Ottobot.sing(songName);
+  }
 }
 
 void attachServos() {

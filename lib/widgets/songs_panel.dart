@@ -4,17 +4,18 @@ import 'small_button.dart';
 
 class SongsPanel extends StatelessWidget {
   final BluetoothManager btManager;
+  final String title;
 
-  const SongsPanel({super.key, required this.btManager});
+  const SongsPanel({super.key, required this.btManager, this.title = 'SING'});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'SING',
-          style: TextStyle(
+        Text(
+          title,
+          style: const TextStyle(
             color: Colors.grey,
             fontSize: 12,
             fontWeight: FontWeight.bold,

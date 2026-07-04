@@ -12,6 +12,7 @@
 *    This Sketch was created to control Otto Starter with the Offical Web Bluetooth Controller for Otto DIY Robots.
 *    For any question about this script you can contact us at education@ottodiy.com
 *    By: Iván R. Artiles
+*    v2 By: David Pront
 */
 
 #include <Otto.h>
