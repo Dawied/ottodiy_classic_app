@@ -7,7 +7,10 @@ Future<void> downloadFileImpl(String url, String fileName) async {
       .replaceFirst('/blob/', '/');
 
   try {
-    final response = await html.HttpRequest.request(rawUrl, responseType: 'blob');
+    final response = await html.HttpRequest.request(
+      rawUrl,
+      responseType: 'blob',
+    );
     final blob = response.response as html.Blob;
     final objectUrl = html.Url.createObjectUrlFromBlob(blob);
 
