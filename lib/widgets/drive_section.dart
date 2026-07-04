@@ -5,6 +5,8 @@ import 'virtual_joystick.dart';
 import 'dpad_controls.dart';
 import 'speed_slider.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class DriveSection extends StatefulWidget {
   final BluetoothManager btManager;
 
@@ -16,6 +18,30 @@ class DriveSection extends StatefulWidget {
 
 class _DriveSectionState extends State<DriveSection> {
   bool _useAnalogJoystick = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadJoystickPreference();
+  }
+
+  void _loadJoystickPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _useAnalogJoystick = prefs.getBool('use_analog_joystick') ?? true;
+      });
+    }
+  }
+
+  void _setJoystickPreference(bool value) async {
+    setState(() {
+      _useAnalogJoystick = value;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_analog_joystick', value);
+  }
+
   DateTime? _lastJoystickSendTime;
 
   void _sendJoystickCommand(double x, double y) {
@@ -65,7 +91,7 @@ class _DriveSectionState extends State<DriveSection> {
                           _useAnalogJoystick
                               ? const Color(0xFF00E5FF)
                               : Colors.grey,
-                          () => setState(() => _useAnalogJoystick = true),
+                          () => _setJoystickPreference(true),
                           isActive: _useAnalogJoystick,
                         ),
                         const SizedBox(width: 8),
@@ -75,7 +101,7 @@ class _DriveSectionState extends State<DriveSection> {
                           _useAnalogJoystick
                               ? Colors.grey
                               : const Color(0xFF00E5FF),
-                          () => setState(() => _useAnalogJoystick = false),
+                          () => _setJoystickPreference(false),
                           isActive: !_useAnalogJoystick,
                         ),
                       ],

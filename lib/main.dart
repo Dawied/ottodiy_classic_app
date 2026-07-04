@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'bluetooth_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/connection_modal.dart';
 import 'widgets/classic_tab.dart';
 import 'widgets/wheels_tab.dart';
@@ -135,9 +136,76 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final BluetoothManager _btManager = BluetoothManager();
   bool _isConsoleVisible = false;
+  TabController? _tabController;
+  int _classicSpeed = 2;
+  int _wheelsSpeed = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
+    _tabController!.addListener(_handleTabChange);
+    _btManager.addListener(_onBluetoothManagerChange);
+    _loadPreferences();
+  }
+
+  void _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastTab = prefs.getInt('last_open_tab') ?? 0;
+    _classicSpeed = prefs.getInt('speed_classic') ?? 2;
+    _wheelsSpeed = prefs.getInt('speed_wheels') ?? 2;
+
+    if (mounted) {
+      setState(() {
+        _tabController!.index = lastTab;
+        _btManager.speedIndex = (lastTab == 0) ? _classicSpeed : _wheelsSpeed;
+      });
+    }
+  }
+
+  void _handleTabChange() async {
+    if (!_tabController!.indexIsChanging) {
+      final index = _tabController!.index;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_open_tab', index);
+      setState(() {
+        _btManager.speedIndex = (index == 0) ? _classicSpeed : _wheelsSpeed;
+      });
+    }
+  }
+
+  void _onBluetoothManagerChange() {
+    final index = _tabController?.index ?? 0;
+    final currentSpeed = _btManager.speedIndex;
+    if (index == 0) {
+      if (_classicSpeed != currentSpeed) {
+        _classicSpeed = currentSpeed;
+        _saveSpeed('speed_classic', currentSpeed);
+      }
+    } else {
+      if (_wheelsSpeed != currentSpeed) {
+        _wheelsSpeed = currentSpeed;
+        _saveSpeed('speed_wheels', currentSpeed);
+      }
+    }
+  }
+
+  void _saveSpeed(String key, int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(key, value);
+  }
+
+  @override
+  void dispose() {
+    _btManager.removeListener(_onBluetoothManagerChange);
+    _tabController?.removeListener(_handleTabChange);
+    _tabController?.dispose();
+    super.dispose();
+  }
 
   void _showConnectionModal() {
     if (!_btManager.isScanning && _btManager.connectedDevice == null) {
@@ -236,57 +304,56 @@ class _HomeScreenState extends State<HomeScreen> {
                   horizontal: 16.0,
                   vertical: 12.0,
                 ),
-                child: DefaultTabController(
-                  length: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const TabBar(
-                        tabs: [
-                          Tab(text: "Classic"),
-                          Tab(text: "Wheels"),
-                        ],
-                        indicatorColor: Color(0xFF00E5FF),
-                        labelColor: Color(0xFF00E5FF),
-                        unselectedLabelColor: Colors.grey,
-                        dividerColor: Colors.white10,
-                      ),
-                      const SizedBox(height: 12),
-                      // Controls Grid
-                      Expanded(
-                        flex: 3,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF111827),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: TabBarView(
-                            children: [
-                              ClassicTab(btManager: _btManager),
-                              WheelsTab(btManager: _btManager),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Console / Serial Logs
-                      if (_isConsoleVisible) ...[
-                        const SizedBox(height: 16),
-                        Expanded(
-                          flex: 1,
-                          child: ConsolePanel(
-                            btManager: _btManager,
-                            onClose: () {
-                              setState(() {
-                                _isConsoleVisible = false;
-                              });
-                            },
-                          ),
-                        ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: "Classic"),
+                        Tab(text: "Wheels"),
                       ],
+                      indicatorColor: const Color(0xFF00E5FF),
+                      labelColor: const Color(0xFF00E5FF),
+                      unselectedLabelColor: Colors.grey,
+                      dividerColor: Colors.white10,
+                    ),
+                    const SizedBox(height: 12),
+                    // Controls Grid
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111827),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            ClassicTab(btManager: _btManager),
+                            WheelsTab(btManager: _btManager),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Console / Serial Logs
+                    if (_isConsoleVisible) ...[
+                      const SizedBox(height: 16),
+                      Expanded(
+                        flex: 1,
+                        child: ConsolePanel(
+                          btManager: _btManager,
+                          onClose: () {
+                            setState(() {
+                              _isConsoleVisible = false;
+                            });
+                          },
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
