@@ -296,5 +296,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-// Controller button widget with micro-animations on tap/hover
