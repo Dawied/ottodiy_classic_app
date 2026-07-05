@@ -77,6 +77,7 @@ class BluetoothManager extends ChangeNotifier {
   String? get activeMode => _activeMode;
 
   StreamSubscription? _notifySubscription;
+  StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   Timer? _distanceClearTimer;
   double? _lastDistance;
   double? get lastDistance => _lastDistance;
@@ -246,9 +247,32 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _cleanupConnection() async {
+    _connectedDevice = null;
+    _writeCharacteristic = null;
+    _activeMode = null;
+
+    await _notifySubscription?.cancel();
+    _notifySubscription = null;
+
+    _distanceClearTimer?.cancel();
+    _distanceClearTimer = null;
+
+    _lastDistance = null;
+
+    _isPollingUltrasound = false;
+
+    _ultrasoundPollTimer?.cancel();
+    _ultrasoundPollTimer = null;
+
+    await _connectionSubscription?.cancel();
+    _connectionSubscription = null;
+  }
+
   Future<void> connect(DiscoveredDevice device) async {
     _isConnecting = true;
     _errorMessage = null;
+    await _connectionSubscription?.cancel();
     notifyListeners();
     addLog("Connecting to ${device.name}...");
 
@@ -257,22 +281,13 @@ class BluetoothManager extends ChangeNotifier {
       final bluetoothDevice = device.originalDevice as BluetoothDevice;
 
       // Listen to connection state updates
-      bluetoothDevice.connectionState.listen(
-        (state) {
+      _connectionSubscription =
+          bluetoothDevice.connectionState.listen(
+        (state) async {
           if (state == BluetoothConnectionState.disconnected) {
             if (_connectedDevice?.id == device.id) {
-              _connectedDevice = null;
-              _writeCharacteristic = null;
-              _activeMode = null;
-              _notifySubscription?.cancel();
-              _notifySubscription = null;
-              _distanceClearTimer?.cancel();
-              _distanceClearTimer = null;
-              _lastDistance = null;
-              _isPollingUltrasound = false;
-              _ultrasoundPollTimer?.cancel();
-              _ultrasoundPollTimer = null;
               addLog("Disconnected from ${device.name}.");
+              await _cleanupConnection();
               notifyListeners();
             }
           }
@@ -403,17 +418,7 @@ class BluetoothManager extends ChangeNotifier {
     } catch (e) {
       addLog("Disconnect error: $e");
     } finally {
-      _connectedDevice = null;
-      _writeCharacteristic = null;
-      _activeMode = null;
-      _notifySubscription?.cancel();
-      _notifySubscription = null;
-      _distanceClearTimer?.cancel();
-      _distanceClearTimer = null;
-      _lastDistance = null;
-      _isPollingUltrasound = false;
-      _ultrasoundPollTimer?.cancel();
-      _ultrasoundPollTimer = null;
+      await _cleanupConnection();
       notifyListeners();
     }
   }
@@ -422,17 +427,6 @@ class BluetoothManager extends ChangeNotifier {
     if (_connectedDevice == null) {
       addLog("Cannot send command: No device connected.");
       return;
-    }
-
-    if (_connectedDevice!.originalDevice != null &&
-        _connectedDevice!.originalDevice is BluetoothDevice) {
-      final bluetoothDevice =
-          _connectedDevice!.originalDevice as BluetoothDevice;
-      if (!bluetoothDevice.isConnected) {
-        addLog("Cannot send command: Connection to device lost.");
-        disconnect();
-        return;
-      }
     }
 
     if (_writeCharacteristic == null) {
@@ -485,8 +479,8 @@ class BluetoothManager extends ChangeNotifier {
         withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
       );
     } catch (e) {
-      addLog("Write failed (device disconnected): $e");
-      disconnect();
+      addLog("BLE write failed: $e");
+      await disconnect();
     }
   }
 
@@ -506,23 +500,23 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
 
     _ultrasoundPollTimer?.cancel();
-    _ultrasoundPollTimer = Timer.periodic(const Duration(milliseconds: 1000), (
-      timer,
-    ) {
+    _ultrasoundPollTimer =
+        Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_connectedDevice == null) {
         stopUltrasoundPolling();
         return;
       }
+
       try {
-        _writeCharacteristic?.write(
+        await _writeCharacteristic!.write(
           "ultrasound2\n".codeUnits,
           withoutResponse:
               _writeCharacteristic!.properties.writeWithoutResponse,
         );
         addLog("Polling ultrasound...");
       } catch (e) {
-        addLog("Polling error: $e");
-        stopUltrasoundPolling();
+        addLog("Ultrasound polling failed: $e");
+        await disconnect();
       }
     });
   }
@@ -556,9 +550,12 @@ class BluetoothManager extends ChangeNotifier {
   void dispose() {
     _adapterStateSubscription?.cancel();
     _scanSubscription?.cancel();
+    _connectionSubscription?.cancel();
     _notifySubscription?.cancel();
+
     _distanceClearTimer?.cancel();
     _ultrasoundPollTimer?.cancel();
+
     super.dispose();
   }
 }
