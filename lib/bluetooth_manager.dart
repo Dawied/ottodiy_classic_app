@@ -262,6 +262,7 @@ class BluetoothManager extends ChangeNotifier {
           if (state == BluetoothConnectionState.disconnected) {
             if (_connectedDevice?.id == device.id) {
               _connectedDevice = null;
+              _writeCharacteristic = null;
               _activeMode = null;
               _notifySubscription?.cancel();
               _notifySubscription = null;
@@ -403,6 +404,7 @@ class BluetoothManager extends ChangeNotifier {
       addLog("Disconnect error: $e");
     } finally {
       _connectedDevice = null;
+      _writeCharacteristic = null;
       _activeMode = null;
       _notifySubscription?.cancel();
       _notifySubscription = null;
@@ -416,10 +418,21 @@ class BluetoothManager extends ChangeNotifier {
     }
   }
 
-  void sendCommand(String command) {
+  Future<void> sendCommand(String command) async {
     if (_connectedDevice == null) {
       addLog("Cannot send command: No device connected.");
       return;
+    }
+
+    if (_connectedDevice!.originalDevice != null &&
+        _connectedDevice!.originalDevice is BluetoothDevice) {
+      final bluetoothDevice =
+          _connectedDevice!.originalDevice as BluetoothDevice;
+      if (!bluetoothDevice.isConnected) {
+        addLog("Cannot send command: Connection to device lost.");
+        disconnect();
+        return;
+      }
     }
 
     if (_writeCharacteristic == null) {
@@ -467,12 +480,13 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _writeCharacteristic!.write(
+      await _writeCharacteristic!.write(
         command.codeUnits,
         withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
       );
     } catch (e) {
-      addLog("Write error: $e");
+      addLog("Write failed (device disconnected): $e");
+      disconnect();
     }
   }
 
