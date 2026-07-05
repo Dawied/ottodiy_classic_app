@@ -32,8 +32,9 @@
 #define ECHO 9
 #define BLE_TX 11
 #define BLE_RX 12
+#define BUZZER 10
+
 #include <Otto.h>
-#define BUZZER 13
 Otto Ottobot;
 
 #if not defined(ARDUINO_ARCH_ESP32)  // disable LineFollower ... Esp32 only has one analog ... maybe fix to use with digital line sensors
@@ -52,7 +53,6 @@ int ultrasound_threeshold = 15;
 int rightValue, leftValue = 0;
 String command = "";
 int current_speed_index = 2;
-
 
 class BTInterface {
 public:
