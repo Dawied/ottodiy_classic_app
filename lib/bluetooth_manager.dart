@@ -42,7 +42,11 @@ class BluetoothManager extends ChangeNotifier {
     try {
       _adapterStateSubscription = FlutterBluePlus.adapterState.listen(
         (state) {
+          if (state != _adapterState) {
+            addLog("Adapter state changed from $_adapterState to $state");
+          }
           _adapterState = state;
+
           notifyListeners();
         },
         onError: (e) {
@@ -85,6 +89,7 @@ class BluetoothManager extends ChangeNotifier {
   bool _isPollingUltrasound = false;
   bool get isPollingUltrasound => _isPollingUltrasound;
   Timer? _ultrasoundPollTimer;
+  Timer? _webKeepAliveTimer;
 
   int _speedIndex = 2; // Default to speed index 2 (1000 ms)
   int get speedIndex => _speedIndex;
@@ -247,7 +252,7 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _cleanupConnection() async {
+  Future<void> _cleanupConnection({bool cancelSubscription = true}) async {
     _connectedDevice = null;
     _writeCharacteristic = null;
     _activeMode = null;
@@ -265,7 +270,12 @@ class BluetoothManager extends ChangeNotifier {
     _ultrasoundPollTimer?.cancel();
     _ultrasoundPollTimer = null;
 
-    await _connectionSubscription?.cancel();
+    _webKeepAliveTimer?.cancel();
+    _webKeepAliveTimer = null;
+
+    if (cancelSubscription) {
+      await _connectionSubscription?.cancel();
+    }
     _connectionSubscription = null;
   }
 
@@ -281,13 +291,12 @@ class BluetoothManager extends ChangeNotifier {
       final bluetoothDevice = device.originalDevice as BluetoothDevice;
 
       // Listen to connection state updates
-      _connectionSubscription =
-          bluetoothDevice.connectionState.listen(
+      _connectionSubscription = bluetoothDevice.connectionState.listen(
         (state) async {
           if (state == BluetoothConnectionState.disconnected) {
             if (_connectedDevice?.id == device.id) {
               addLog("Disconnected from ${device.name}.");
-              await _cleanupConnection();
+              await _cleanupConnection(cancelSubscription: false);
               notifyListeners();
             }
           }
@@ -397,6 +406,7 @@ class BluetoothManager extends ChangeNotifier {
       } else {
         addLog("Warning: No notify characteristic found.");
       }
+      _startWebKeepAliveTimer();
     } catch (e) {
       _errorMessage = "Connection failed: $e";
       addLog("Error: $_errorMessage");
@@ -423,64 +433,100 @@ class BluetoothManager extends ChangeNotifier {
     }
   }
 
+  Future<void> testConnection() async {
+    if (_connectedDevice == null) return;
+    if (_writeCharacteristic == null) return;
+
+    try {
+      await _writeCharacteristic!.write(
+        const [],
+        withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
+      );
+    } catch (e) {
+      addLog("Connection test failed: $e");
+      await disconnect();
+    }
+  }
+
+  void _startWebKeepAliveTimer() {
+    if (!kIsWeb) return;
+    _webKeepAliveTimer?.cancel();
+    _webKeepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      testConnection();
+    });
+  }
+
+  void _stopWebKeepAliveTimer() {
+    _webKeepAliveTimer?.cancel();
+    _webKeepAliveTimer = null;
+  }
+
   Future<void> sendCommand(String command) async {
     if (_connectedDevice == null) {
       addLog("Cannot send command: No device connected.");
       return;
     }
 
-    if (_writeCharacteristic == null) {
-      addLog("Error: No writable characteristic to send command.");
-      return;
-    }
-
-    addLog("Sent Command: '${command.trim()}'");
-
-    final cmdClean = command.trim().toLowerCase();
-    if (!cmdClean.startsWith('ultrasound')) {
-      if (_isPollingUltrasound) {
-        _isPollingUltrasound = false;
-        _ultrasoundPollTimer?.cancel();
-        _ultrasoundPollTimer = null;
-      }
-    }
-
-    if (cmdClean.startsWith('avoidance')) {
-      _activeMode = 'avoidance';
-    } else if (cmdClean.startsWith('line_follower')) {
-      _activeMode = 'line_follower';
-    } else if (cmdClean.startsWith('force')) {
-      _activeMode = 'force';
-    } else if (cmdClean.startsWith('stop') ||
-        cmdClean.startsWith('forward') ||
-        cmdClean.startsWith('backward') ||
-        cmdClean.startsWith('left') ||
-        cmdClean.startsWith('right') ||
-        cmdClean.startsWith('happy') ||
-        cmdClean.startsWith('victory') ||
-        cmdClean.startsWith('sad') ||
-        cmdClean.startsWith('sleeping') ||
-        cmdClean.startsWith('confused') ||
-        cmdClean.startsWith('fail') ||
-        cmdClean.startsWith('fart') ||
-        cmdClean.startsWith('love') ||
-        cmdClean.startsWith('fretful') ||
-        cmdClean.startsWith('magic') ||
-        cmdClean.startsWith('sing') ||
-        cmdClean.startsWith('walk_test') ||
-        cmdClean.startsWith('ultrasound')) {
-      _activeMode = null;
-    }
-    notifyListeners();
+    _stopWebKeepAliveTimer();
 
     try {
-      await _writeCharacteristic!.write(
-        command.codeUnits,
-        withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
-      );
-    } catch (e) {
-      addLog("BLE write failed: $e");
-      await disconnect();
+      if (_writeCharacteristic == null) {
+        addLog("Error: No writable characteristic to send command.");
+        return;
+      }
+
+      addLog("Sent Command: '${command.trim()}'");
+
+      final cmdClean = command.trim().toLowerCase();
+      if (!cmdClean.startsWith('ultrasound')) {
+        if (_isPollingUltrasound) {
+          _isPollingUltrasound = false;
+          _ultrasoundPollTimer?.cancel();
+          _ultrasoundPollTimer = null;
+        }
+      }
+
+      if (cmdClean.startsWith('avoidance')) {
+        _activeMode = 'avoidance';
+      } else if (cmdClean.startsWith('line_follower')) {
+        _activeMode = 'line_follower';
+      } else if (cmdClean.startsWith('force')) {
+        _activeMode = 'force';
+      } else if (cmdClean.startsWith('stop') ||
+          cmdClean.startsWith('forward') ||
+          cmdClean.startsWith('backward') ||
+          cmdClean.startsWith('left') ||
+          cmdClean.startsWith('right') ||
+          cmdClean.startsWith('happy') ||
+          cmdClean.startsWith('victory') ||
+          cmdClean.startsWith('sad') ||
+          cmdClean.startsWith('sleeping') ||
+          cmdClean.startsWith('confused') ||
+          cmdClean.startsWith('fail') ||
+          cmdClean.startsWith('fart') ||
+          cmdClean.startsWith('love') ||
+          cmdClean.startsWith('fretful') ||
+          cmdClean.startsWith('magic') ||
+          cmdClean.startsWith('sing') ||
+          cmdClean.startsWith('walk_test') ||
+          cmdClean.startsWith('ultrasound')) {
+        _activeMode = null;
+      }
+      notifyListeners();
+
+      try {
+        await _writeCharacteristic!.write(
+          command.codeUnits,
+          withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
+        );
+      } catch (e) {
+        addLog("BLE write failed: $e");
+        await disconnect();
+      }
+    } finally {
+      if (_connectedDevice != null) {
+        _startWebKeepAliveTimer();
+      }
     }
   }
 
@@ -500,8 +546,9 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
 
     _ultrasoundPollTimer?.cancel();
-    _ultrasoundPollTimer =
-        Timer.periodic(const Duration(seconds: 1), (timer) async {
+    _ultrasoundPollTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) async {
       if (_connectedDevice == null) {
         stopUltrasoundPolling();
         return;
@@ -555,6 +602,7 @@ class BluetoothManager extends ChangeNotifier {
 
     _distanceClearTimer?.cancel();
     _ultrasoundPollTimer?.cancel();
+    _webKeepAliveTimer?.cancel();
 
     super.dispose();
   }
