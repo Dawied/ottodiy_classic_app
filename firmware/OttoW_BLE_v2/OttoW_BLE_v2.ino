@@ -35,6 +35,14 @@
 #define BLE_RX 12
 #define BUZZER 10
 
+#ifdef ARDUINO_ARCH_ESP32
+#define LINE_SENSOR_RIGHT 5
+#define LINE_SENSOR_LEFT 6
+#else
+#define LINE_SENSOR_RIGHT A0
+#define LINE_SENSOR_LEFT A1
+#endif
+
 // Self-contained sound note definitions (copied from Otto DIY Library)
 #define note_E5  659.26
 #define note_B5  987.77
@@ -145,10 +153,7 @@ void sing(int songName) {
   }
 }
 
-#if not defined(ARDUINO_ARCH_ESP32)  // disable LineFollower ... Esp32 only has one analog ... maybe fix to use with digital line sensors
-int line_sensor_right = A0;
-int line_sensor_left = A1;
-#endif
+
 
 int speed_right_forward = 30;
 int speed_right_backward = 150;
@@ -374,6 +379,8 @@ void setup() {
   pinMode(BUZZER, OUTPUT);
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
+  pinMode(LINE_SENSOR_RIGHT, INPUT);
+  pinMode(LINE_SENSOR_LEFT, INPUT);
 
 #ifdef ARDUINO_ARCH_ESP32
   ESP32PWM::allocateTimer(0);
@@ -567,9 +574,23 @@ void Avoidance() {
 }
 
 void LineFollower() {
-#if not defined(ARDUINO_ARCH_ESP32)  // disable LineFollower ... Esp32 only has one analog ... maybe fix to use digital line sensors
-  rightValue = analogRead(line_sensor_right);
-  leftValue = analogRead(line_sensor_left);
+#if defined(ARDUINO_ARCH_ESP32)
+  rightValue = digitalRead(LINE_SENSOR_RIGHT);
+  leftValue = digitalRead(LINE_SENSOR_LEFT);
+
+  // Digital IR sensors: HIGH (1) when over black line, LOW (0) over white surface
+  if (rightValue == LOW && leftValue == LOW) {
+    Forward();
+  } else if (leftValue == HIGH && rightValue == LOW) {
+    Left();
+  } else if (rightValue == HIGH && leftValue == LOW) {
+    Right();
+  } else if (rightValue == HIGH && leftValue == HIGH) {
+    Stop();
+  }
+#else
+  rightValue = analogRead(LINE_SENSOR_RIGHT);
+  leftValue = analogRead(LINE_SENSOR_LEFT);
 
   if (rightValue > right_threeshold && leftValue > left_threeshold) {
     servo_right.write(speed_right_forward + 10);
