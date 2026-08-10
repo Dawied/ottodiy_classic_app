@@ -33,7 +33,7 @@ class WheelsTab extends StatelessWidget {
               const SizedBox(height: 24),
               WheelsModesSection(btManager: btManager),
               const SizedBox(height: 24),
-              const WheelsUtilities(),
+              WheelsUtilities(btManager: btManager),
             ],
           ),
         );

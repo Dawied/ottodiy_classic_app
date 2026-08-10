@@ -29,18 +29,19 @@
 
 #define RIGHTSERVO 2
 #define LEFTSERVO 3
-#define TRIG 8
-#define ECHO 9
 #define BLE_TX 11
 #define BLE_RX 12
 #define BUZZER 10
-
 #ifdef ARDUINO_ARCH_ESP32
 #define LINE_SENSOR_RIGHT 5
 #define LINE_SENSOR_LEFT 6
+#define TRIG 4
+#define ECHO 7
 #else
 #define LINE_SENSOR_RIGHT A0
 #define LINE_SENSOR_LEFT A1
+#define TRIG 8
+#define ECHO 9
 #endif
 
 // Self-contained sound note definitions (copied from Otto DIY Library)
@@ -365,17 +366,14 @@ long ultrasound_distance() {
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-  duration = pulseIn(ECHO, HIGH);
+  duration = pulseIn(ECHO, HIGH, 30000);
   distance = duration / 58;
   return distance;
 }
 
 void setup() {
-  setupBluetooth();
-
-  bluetooth->begin("OttoDIY");
-
   Serial.begin(9600);
+  setupBluetooth();
   pinMode(BUZZER, OUTPUT);
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
@@ -465,7 +463,16 @@ void checkBluetooth() {
     Stop();
   } else if (strncmp(buffer, "avoidance", 9) == 0) command = "avoidance";
   else if (strncmp(buffer, "line_follower", 13) == 0) command = "linefollower";
-  else if (strncmp(buffer, "sing", 4) == 0) {
+  else if (strncmp(buffer, "ultrasound", 10) == 0) {
+    if (command == "avoidance" || command == "linefollower") {
+      command = "";
+      Stop();
+    }
+    long dist = ultrasound_distance();
+    Serial.print("Ultrasound distance: ");
+    Serial.println(dist);
+    bluetooth->write(String(dist));
+  } else if (strncmp(buffer, "sing", 4) == 0) {
     command = "";
     char *p = buffer + 4;
     while (*p && (*p < '0' || *p > '9')) {
@@ -478,11 +485,11 @@ void checkBluetooth() {
 
 void attachServos() {
 #ifdef ARDUINO_ARCH_ESP32
-  servo_right.attach(RIGHTSERVO, 1000, 2000);
-  servo_left.attach(LEFTSERVO, 1000, 2000);
+  if (!servo_right.attached()) servo_right.attach(RIGHTSERVO, 1000, 2000);
+  if (!servo_left.attached()) servo_left.attach(LEFTSERVO, 1000, 2000);
 #else
-  servo_right.attach(RIGHTSERVO);
-  servo_left.attach(LEFTSERVO);
+  if (!servo_right.attached()) servo_right.attach(RIGHTSERVO);
+  if (!servo_left.attached()) servo_left.attach(LEFTSERVO);
 #endif
 }
 
