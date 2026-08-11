@@ -89,6 +89,30 @@ class BluetoothManager extends ChangeNotifier {
   bool _isPollingUltrasound = false;
   bool get isPollingUltrasound => _isPollingUltrasound;
   Timer? _ultrasoundPollTimer;
+
+  Timer? _lineSensorClearTimer;
+  String? _lastLineSensorState;
+  String? get lastLineSensorState => _lastLineSensorState;
+
+  bool _isPollingLineSensor = false;
+  bool get isPollingLineSensor => _isPollingLineSensor;
+  Timer? _lineSensorPollTimer;
+
+  String get lineSensorLabel {
+    if (_lastLineSensorState == null) return 'Line Sensors';
+    switch (_lastLineSensorState) {
+      case '0,0':
+        return 'Sensors: L:⚪ R:⚪ (Forward)';
+      case '1,0':
+        return 'Sensors: L:⚫ R:⚪ (Turn Left)';
+      case '0,1':
+        return 'Sensors: L:⚪ R:⚫ (Turn Right)';
+      case '1,1':
+        return 'Sensors: L:⚫ R:⚫ (Stop)';
+      default:
+        return 'Sensors: $_lastLineSensorState';
+    }
+  }
   Timer? _webKeepAliveTimer;
 
   int _speedIndex = 2; // Default to speed index 2 (1000 ms)
@@ -270,6 +294,13 @@ class BluetoothManager extends ChangeNotifier {
     _ultrasoundPollTimer?.cancel();
     _ultrasoundPollTimer = null;
 
+    _lineSensorClearTimer?.cancel();
+    _lineSensorClearTimer = null;
+    _lastLineSensorState = null;
+    _isPollingLineSensor = false;
+    _lineSensorPollTimer?.cancel();
+    _lineSensorPollTimer = null;
+
     _webKeepAliveTimer?.cancel();
     _webKeepAliveTimer = null;
 
@@ -381,18 +412,32 @@ class BluetoothManager extends ChangeNotifier {
           _notifySubscription = notifyCharacteristic.onValueReceived.listen(
             (value) {
               final rawData = String.fromCharCodes(value).trim();
-              final double? dist = double.tryParse(rawData);
-              if (dist != null) {
-                _lastDistance = dist;
-                addLog("Distance received: ${dist.toStringAsFixed(1)} cm");
+              if (rawData.startsWith("LINE:")) {
+                _lastLineSensorState = rawData.substring(5).trim();
+                addLog("Line status received: $_lastLineSensorState");
                 notifyListeners();
 
-                _distanceClearTimer?.cancel();
-                if (!_isPollingUltrasound) {
-                  _distanceClearTimer = Timer(const Duration(seconds: 5), () {
-                    _lastDistance = null;
+                _lineSensorClearTimer?.cancel();
+                if (!_isPollingLineSensor) {
+                  _lineSensorClearTimer = Timer(const Duration(seconds: 5), () {
+                    _lastLineSensorState = null;
                     notifyListeners();
                   });
+                }
+              } else {
+                final double? dist = double.tryParse(rawData);
+                if (dist != null) {
+                  _lastDistance = dist;
+                  addLog("Distance received: ${dist.toStringAsFixed(1)} cm");
+                  notifyListeners();
+
+                  _distanceClearTimer?.cancel();
+                  if (!_isPollingUltrasound) {
+                    _distanceClearTimer = Timer(const Duration(seconds: 5), () {
+                      _lastDistance = null;
+                      notifyListeners();
+                    });
+                  }
                 }
               }
             },
@@ -574,6 +619,53 @@ class BluetoothManager extends ChangeNotifier {
     _ultrasoundPollTimer?.cancel();
     _ultrasoundPollTimer = null;
     _lastDistance = null;
+    notifyListeners();
+  }
+
+  void toggleLineSensorPolling() {
+    if (_isPollingLineSensor) {
+      stopLineSensorPolling();
+    } else {
+      startLineSensorPolling();
+    }
+  }
+
+  void startLineSensorPolling() {
+    if (_connectedDevice == null) return;
+    sendCommand('stop2\n');
+    _isPollingLineSensor = true;
+    _lastLineSensorState = null;
+    notifyListeners();
+
+    _lineSensorPollTimer?.cancel();
+    _lineSensorPollTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) async {
+      if (_connectedDevice == null) {
+        stopLineSensorPolling();
+        return;
+      }
+
+      try {
+        await _writeCharacteristic!.write(
+          "linesensor2\n".codeUnits,
+          withoutResponse:
+              _writeCharacteristic!.properties.writeWithoutResponse,
+        );
+        addLog("Polling line sensors...");
+      } catch (e) {
+        addLog("Line sensor polling failed: $e");
+        await disconnect();
+      }
+    });
+  }
+
+  void stopLineSensorPolling() {
+    if (!_isPollingLineSensor) return;
+    _isPollingLineSensor = false;
+    _lineSensorPollTimer?.cancel();
+    _lineSensorPollTimer = null;
+    _lastLineSensorState = null;
     notifyListeners();
   }
 

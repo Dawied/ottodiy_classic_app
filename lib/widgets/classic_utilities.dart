@@ -46,6 +46,13 @@ class ClassicUtilities extends StatelessWidget {
                       isActive: btManager.isPollingUltrasound,
                     ),
                     SmallButton(
+                      btManager.lineSensorLabel,
+                      Icons.alt_route,
+                      Colors.purpleAccent,
+                      () => btManager.toggleLineSensorPolling(),
+                      isActive: btManager.isPollingLineSensor,
+                    ),
+                    SmallButton(
                       'Walk Test',
                       Icons.directions_walk,
                       Colors.pinkAccent,

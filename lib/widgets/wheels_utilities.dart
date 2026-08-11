@@ -46,6 +46,19 @@ class WheelsUtilities extends StatelessWidget {
                     ),
                   ),
                 ),
+                Opacity(
+                  opacity: isConnected ? 1.0 : 0.4,
+                  child: AbsorbPointer(
+                    absorbing: !isConnected,
+                    child: SmallButton(
+                      btManager.lineSensorLabel,
+                      Icons.alt_route,
+                      Colors.purpleAccent,
+                      () => btManager.toggleLineSensorPolling(),
+                      isActive: btManager.isPollingLineSensor,
+                    ),
+                  ),
+                ),
                 SmallButton(
                   'Get Arduino Code',
                   Icons.download,
