@@ -1,16 +1,14 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Model for Discovered Device (Real BLE or Simulated)
+// Model for Discovered Device
 class DiscoveredDevice {
   final String id;
   final String name;
   final int rssi;
-  final dynamic originalDevice; // Holds BluetoothDevice if real
+  final dynamic originalDevice;
 
   DiscoveredDevice({
     required this.id,
@@ -20,56 +18,23 @@ class DiscoveredDevice {
   });
 }
 
-// Bluetooth State Manager
+/// Web Bluetooth State Manager for Otto DIY Robot
 class BluetoothManager extends ChangeNotifier {
   static final BluetoothManager _instance = BluetoothManager._internal();
   factory BluetoothManager() => _instance;
 
   BluetoothManager._internal() {
-    Future.delayed(Duration.zero, () {
-      _initBluetooth();
-    });
+    _loadPreferences();
   }
 
-  void _initBluetooth() {
-    if (kIsWeb) {
-      // Web Bluetooth does not support adapterState well without a user gesture,
-      // and it often throws UnsupportedError. We skip it on Web.
-      _adapterState = BluetoothAdapterState.unknown;
-      notifyListeners();
-      return;
-    }
-    try {
-      _adapterStateSubscription = FlutterBluePlus.adapterState.listen(
-        (state) {
-          if (state != _adapterState) {
-            addLog("Adapter state changed from $_adapterState to $state");
-          }
-          _adapterState = state;
-
-          notifyListeners();
-        },
-        onError: (e) {
-          addLog("Bluetooth adapter state error: $e");
-        },
-      );
-    } catch (e) {
-      final timestamp = DateTime.now().toString().substring(11, 19);
-      _consoleLogs.insert(
-        0,
-        "[$timestamp] Failed to initialize Bluetooth adapter: $e",
-      );
-    }
-  }
-
-  BluetoothAdapterState _adapterState = BluetoothAdapterState.unknown;
-  BluetoothAdapterState get adapterState => _adapterState;
-
-  StreamSubscription? _adapterStateSubscription;
   StreamSubscription? _scanSubscription;
+  StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
 
   bool _isScanning = false;
   bool get isScanning => _isScanning;
+
+  bool _isConnecting = false;
+  bool get isConnecting => _isConnecting;
 
   List<DiscoveredDevice> _devices = [];
   List<DiscoveredDevice> get devices => _devices;
@@ -80,8 +45,12 @@ class BluetoothManager extends ChangeNotifier {
   String? _activeMode;
   String? get activeMode => _activeMode;
 
+  BluetoothCharacteristic? _writeCharacteristic;
   StreamSubscription? _notifySubscription;
-  StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
+
+  String? _pendingCommand;
+  bool _isSending = false;
+
   Timer? _distanceClearTimer;
   double? _lastDistance;
   double? get lastDistance => _lastDistance;
@@ -98,6 +67,23 @@ class BluetoothManager extends ChangeNotifier {
   bool get isPollingLineSensor => _isPollingLineSensor;
   Timer? _lineSensorPollTimer;
 
+  int _avoidanceDistance = 15;
+  int get avoidanceDistance => _avoidanceDistance;
+
+  int _speedIndex = 2; // Default to speed index 2
+  int get speedIndex => _speedIndex;
+
+  set speedIndex(int value) {
+    if (value >= 0 && value <= 5) {
+      _speedIndex = value;
+      notifyListeners();
+
+      if (_activeMode != null) {
+        sendCommand('$_activeMode$_speedIndex\n');
+      }
+    }
+  }
+
   String get lineSensorLabel {
     if (_lastLineSensorState == null) return 'Line Sensors';
     switch (_lastLineSensorState) {
@@ -113,32 +99,11 @@ class BluetoothManager extends ChangeNotifier {
         return 'Sensors: $_lastLineSensorState';
     }
   }
-  Timer? _webKeepAliveTimer;
-
-  int _speedIndex = 2; // Default to speed index 2 (1000 ms)
-  int get speedIndex => _speedIndex;
-
-  set speedIndex(int value) {
-    if (value >= 0 && value <= 5) {
-      _speedIndex = value;
-      notifyListeners();
-
-      // If a mode is active, dynamically update its speed on the robot
-      if (_activeMode != null) {
-        sendCommand('$_activeMode$_speedIndex\n');
-      }
-    }
-  }
-
-  BluetoothCharacteristic? _writeCharacteristic;
-
-  bool _isConnecting = false;
-  bool get isConnecting => _isConnecting;
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  final List<String> _consoleLogs = ["Otto Console initialized."];
+  final List<String> _consoleLogs = ["Web Bluetooth Manager initialized."];
   List<String> get consoleLogs => _consoleLogs;
 
   void addLog(String message) {
@@ -148,119 +113,96 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _loadPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _avoidanceDistance = prefs.getInt('avoidance_distance') ?? 15;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void setAvoidanceDistance(int dist) async {
+    if (dist < 5) dist = 5;
+    if (dist > 40) dist = 40;
+    if (_avoidanceDistance != dist) {
+      _avoidanceDistance = dist;
+      notifyListeners();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('avoidance_distance', dist);
+      } catch (_) {}
+
+      if (_connectedDevice != null) {
+        sendCommand('avoidance_dist$dist\n');
+      }
+    }
+  }
+
+  /// Triggers Chrome's native Web Bluetooth selection picker
   Future<void> startScan() async {
     _devices.clear();
     _errorMessage = null;
+    _isScanning = true;
     notifyListeners();
-    addLog("Scanning for Otto DIY robots...");
+    addLog("Opening Web Bluetooth selection picker...");
 
-    // Real BLE Scan
     try {
-      bool isSupported = false;
-      try {
-        isSupported = await FlutterBluePlus.isSupported;
-      } catch (e) {
-        if (e is UnsupportedError || e.toString().contains('unsupported')) {
-          _errorMessage = kIsWeb
-              ? "Web Bluetooth requires Chrome/Edge and HTTPS."
-              : "Bluetooth not natively supported on this OS/device.";
-        } else {
-          _errorMessage = "Bluetooth check failed: $e";
-        }
-        addLog("Error: $_errorMessage");
-        notifyListeners();
-        return;
-      }
-
-      if (!isSupported) {
-        _errorMessage = "Bluetooth not supported on this device.";
-        addLog("Error: $_errorMessage");
-        notifyListeners();
-        return;
-      }
-
-      if (!kIsWeb &&
-          FlutterBluePlus.adapterStateNow != BluetoothAdapterState.on) {
-        _errorMessage = "Bluetooth is off. Please turn it on.";
-        addLog("Error: $_errorMessage");
-        notifyListeners();
-        return;
-      }
-
-      final hasPermission = await _requestPermissions();
-      if (!hasPermission) {
-        _errorMessage = "Bluetooth / Location permissions denied.";
-        addLog("Error: $_errorMessage");
-        notifyListeners();
-        return;
-      }
-
-      _isScanning = true;
-      notifyListeners();
-
       _scanSubscription?.cancel();
       _scanSubscription = FlutterBluePlus.scanResults.listen(
         (results) {
-          _devices = results
+          final validResults = results
               .where(
                 (r) =>
                     r.device.platformName.isNotEmpty ||
                     r.device.remoteId.str.isNotEmpty,
               )
-              .map((r) {
-                final name = r.device.platformName.isNotEmpty
-                    ? r.device.platformName
-                    : r.device.remoteId.str;
-                return DiscoveredDevice(
-                  id: r.device.remoteId.str,
-                  name: name,
-                  rssi: r.rssi,
-                  originalDevice: r.device,
-                );
-              })
               .toList();
-          notifyListeners();
+
+          if (validResults.isNotEmpty) {
+            _devices = validResults.map((r) {
+              final name = r.device.platformName.isNotEmpty
+                  ? r.device.platformName
+                  : r.device.remoteId.str;
+              return DiscoveredDevice(
+                id: r.device.remoteId.str,
+                name: name,
+                rssi: r.rssi,
+                originalDevice: r.device,
+              );
+            }).toList();
+
+            notifyListeners();
+
+            if (_connectedDevice == null && !_isConnecting) {
+              addLog("Device selected in browser. Connecting immediately...");
+              FlutterBluePlus.stopScan();
+              connect(_devices.first);
+            }
+          }
         },
         onError: (e) {
-          _errorMessage = "Scan stream error: $e";
+          _errorMessage = "Scan error: $e";
           _isScanning = false;
           addLog("Error: $_errorMessage");
           notifyListeners();
         },
       );
 
-      List<Guid> scanServices = [];
-      if (kIsWeb) {
-        // Web Bluetooth requires services to be specified ahead of time
-        // to be allowed access during discoverServices.
-        scanServices = [
-          Guid("0000ffe0-0000-1000-8000-00805f9b34fb"), // HM-10 / AT-09
-          Guid("6e400001-b5a3-f393-e0a9-e50e24dcca9e"), // Nordic UART
-        ];
-      }
+      List<Guid> scanServices = [
+        Guid("6e400001-b5a3-f393-e0a9-e50e24dcca9e"), // Nordic UART (Otto BLE / ESP32)
+        Guid("0000ffe0-0000-1000-8000-00805f9b34fb"), // HM-10 / AT-09 / MLT-BT05
+        Guid("0000fff0-0000-1000-8000-00805f9b34fb"), // JDY Serial
+        Guid("0000ffe1-0000-1000-8000-00805f9b34fb"),
+        Guid("00001101-0000-1000-8000-00805f9b34fb"),
+      ];
 
       await FlutterBluePlus.startScan(
         withServices: scanServices,
-        timeout: const Duration(seconds: 8),
+        timeout: const Duration(seconds: 15),
       );
 
-      if (kIsWeb) {
-        // Wait up to 1 second for the device stream to populate after browser picker closes
-        for (int i = 0; i < 10; i++) {
-          if (_devices.isNotEmpty) break;
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-      }
-
       _isScanning = false;
-      addLog("BLE scan finished. Found ${_devices.length} devices.");
-
-      // Auto-connect on web since the browser picker already handled selection
-      if (kIsWeb && _devices.isNotEmpty) {
-        addLog("Web Bluetooth: Auto-connecting to selected device...");
-        connect(_devices.first);
-      }
-
       notifyListeners();
     } catch (e) {
       _errorMessage = "Scan failed: $e";
@@ -279,6 +221,7 @@ class BluetoothManager extends ChangeNotifier {
   Future<void> _cleanupConnection({bool cancelSubscription = true}) async {
     _connectedDevice = null;
     _writeCharacteristic = null;
+    _pendingCommand = null;
     _activeMode = null;
 
     await _notifySubscription?.cancel();
@@ -286,23 +229,19 @@ class BluetoothManager extends ChangeNotifier {
 
     _distanceClearTimer?.cancel();
     _distanceClearTimer = null;
-
     _lastDistance = null;
 
     _isPollingUltrasound = false;
-
     _ultrasoundPollTimer?.cancel();
     _ultrasoundPollTimer = null;
 
     _lineSensorClearTimer?.cancel();
     _lineSensorClearTimer = null;
     _lastLineSensorState = null;
+
     _isPollingLineSensor = false;
     _lineSensorPollTimer?.cancel();
     _lineSensorPollTimer = null;
-
-    _webKeepAliveTimer?.cancel();
-    _webKeepAliveTimer = null;
 
     if (cancelSubscription) {
       await _connectionSubscription?.cancel();
@@ -310,18 +249,17 @@ class BluetoothManager extends ChangeNotifier {
     _connectionSubscription = null;
   }
 
+  /// Establishes GATT connection and discovers characteristics
   Future<void> connect(DiscoveredDevice device) async {
     _isConnecting = true;
     _errorMessage = null;
     await _connectionSubscription?.cancel();
     notifyListeners();
-    addLog("Connecting to ${device.name}...");
+    addLog("Connecting to Web Bluetooth device: ${device.name}...");
 
-    // Real BLE Connection
     try {
       final bluetoothDevice = device.originalDevice as BluetoothDevice;
 
-      // Listen to connection state updates
       _connectionSubscription = bluetoothDevice.connectionState.listen(
         (state) async {
           if (state == BluetoothConnectionState.disconnected) {
@@ -341,16 +279,11 @@ class BluetoothManager extends ChangeNotifier {
         license: License.nonprofit,
         timeout: const Duration(seconds: 10),
       );
-      _connectedDevice = device;
-      addLog("Connected to BLE device: ${device.name}");
+      addLog("GATT connection established with ${device.name}.");
 
-      // Discover BLE Services (standard for BLE communication)
-      addLog("Discovering services...");
-      List<BluetoothService> services = await bluetoothDevice
-          .discoverServices();
-      addLog("Services discovered successfully.");
+      List<BluetoothService> services = await bluetoothDevice.discoverServices();
+      addLog("GATT services discovered.");
 
-      // Find write characteristic
       _writeCharacteristic = null;
       for (var service in services) {
         for (var characteristic in service.characteristics) {
@@ -359,7 +292,7 @@ class BluetoothManager extends ChangeNotifier {
             String uuid = characteristic.uuid.str.toLowerCase();
             if (uuid.contains("ffe1") || uuid.contains("6e400002")) {
               _writeCharacteristic = characteristic;
-              break; // Found preferred serial characteristic
+              break;
             } else {
               _writeCharacteristic ??= characteristic;
             }
@@ -367,20 +300,12 @@ class BluetoothManager extends ChangeNotifier {
         }
         if (_writeCharacteristic != null &&
             (_writeCharacteristic!.uuid.str.toLowerCase().contains("ffe1") ||
-                _writeCharacteristic!.uuid.str.toLowerCase().contains(
-                  "6e400002",
-                ))) {
+                _writeCharacteristic!.uuid.str.toLowerCase().contains("6e400002"))) {
           break;
         }
       }
 
-      if (_writeCharacteristic != null) {
-        addLog("Ready to send commands.");
-      } else {
-        addLog("Warning: No writable characteristic found.");
-      }
-
-      // Find notify/read characteristic and subscribe
+      // Find notify characteristic and subscribe
       BluetoothCharacteristic? notifyCharacteristic;
       for (var service in services) {
         for (var characteristic in service.characteristics) {
@@ -397,9 +322,7 @@ class BluetoothManager extends ChangeNotifier {
         }
         if (notifyCharacteristic != null &&
             (notifyCharacteristic.uuid.str.toLowerCase().contains("ffe1") ||
-                notifyCharacteristic.uuid.str.toLowerCase().contains(
-                  "6e400003",
-                ))) {
+                notifyCharacteristic.uuid.str.toLowerCase().contains("6e400003"))) {
           break;
         }
       }
@@ -448,10 +371,22 @@ class BluetoothManager extends ChangeNotifier {
         } catch (e) {
           addLog("Failed to subscribe to notifications: $e");
         }
-      } else {
-        addLog("Warning: No notify characteristic found.");
       }
-      _startWebKeepAliveTimer();
+
+      if (_writeCharacteristic != null) {
+        _connectedDevice = device;
+        addLog("Write characteristic ready. Otto connected.");
+
+        // Flush any buffered command
+        if (_pendingCommand != null) {
+          final cmdToSend = _pendingCommand!;
+          _pendingCommand = null;
+          addLog("Flushing buffered initial command: '${cmdToSend.trim()}'");
+          await sendCommand(cmdToSend);
+        }
+      } else {
+        addLog("Warning: No writable characteristic found.");
+      }
     } catch (e) {
       _errorMessage = "Connection failed: $e";
       addLog("Error: $_errorMessage");
@@ -467,8 +402,7 @@ class BluetoothManager extends ChangeNotifier {
     addLog("Disconnecting from $name...");
 
     try {
-      final bluetoothDevice =
-          _connectedDevice!.originalDevice as BluetoothDevice;
+      final bluetoothDevice = _connectedDevice!.originalDevice as BluetoothDevice;
       await bluetoothDevice.disconnect();
     } catch (e) {
       addLog("Disconnect error: $e");
@@ -478,100 +412,71 @@ class BluetoothManager extends ChangeNotifier {
     }
   }
 
-  Future<void> testConnection() async {
-    if (_connectedDevice == null) return;
-    if (_writeCharacteristic == null) return;
-
-    try {
-      await _writeCharacteristic!.write(
-        const [],
-        withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
-      );
-    } catch (e) {
-      addLog("Connection test failed: $e");
-      await disconnect();
-    }
-  }
-
-  void _startWebKeepAliveTimer() {
-    if (!kIsWeb) return;
-    _webKeepAliveTimer?.cancel();
-    _webKeepAliveTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      testConnection();
-    });
-  }
-
-  void _stopWebKeepAliveTimer() {
-    _webKeepAliveTimer?.cancel();
-    _webKeepAliveTimer = null;
-  }
-
+  /// Sends command over BLE write characteristic using Last-In-Wins single-slot buffering
   Future<void> sendCommand(String command) async {
-    if (_connectedDevice == null) {
-      addLog("Cannot send command: No device connected.");
-      return;
+    _pendingCommand = command;
+
+    final cmdClean = command.trim().toLowerCase();
+    if (!cmdClean.startsWith('ultrasound') && !cmdClean.startsWith('linesensor')) {
+      if (_isPollingUltrasound) stopUltrasoundPolling();
+      if (_isPollingLineSensor) stopLineSensorPolling();
     }
 
-    _stopWebKeepAliveTimer();
+    if (cmdClean.startsWith('avoidance')) {
+      _activeMode = 'avoidance';
+    } else if (cmdClean.startsWith('line_follower')) {
+      _activeMode = 'line_follower';
+    } else if (cmdClean.startsWith('force')) {
+      _activeMode = 'force';
+    } else if (cmdClean.startsWith('stop') ||
+        cmdClean.startsWith('forward') ||
+        cmdClean.startsWith('backward') ||
+        cmdClean.startsWith('left') ||
+        cmdClean.startsWith('right') ||
+        cmdClean.startsWith('happy') ||
+        cmdClean.startsWith('victory') ||
+        cmdClean.startsWith('sad') ||
+        cmdClean.startsWith('sleeping') ||
+        cmdClean.startsWith('confused') ||
+        cmdClean.startsWith('fail') ||
+        cmdClean.startsWith('fart') ||
+        cmdClean.startsWith('love') ||
+        cmdClean.startsWith('fretful') ||
+        cmdClean.startsWith('magic') ||
+        cmdClean.startsWith('sing') ||
+        cmdClean.startsWith('walk_test') ||
+        cmdClean.startsWith('ultrasound')) {
+      _activeMode = null;
+    }
+
+    notifyListeners();
+
+    if (_connectedDevice == null || _writeCharacteristic == null) return;
+    if (_isSending) return;
+
+    _isSending = true;
 
     try {
-      if (_writeCharacteristic == null) {
-        addLog("Error: No writable characteristic to send command.");
-        return;
-      }
+      while (_pendingCommand != null &&
+          _connectedDevice != null &&
+          _writeCharacteristic != null) {
+        final cmdToSend = _pendingCommand!;
+        _pendingCommand = null;
 
-      addLog("Sent Command: '${command.trim()}'");
+        addLog("Sent Command: '${cmdToSend.trim()}'");
 
-      final cmdClean = command.trim().toLowerCase();
-      if (!cmdClean.startsWith('ultrasound')) {
-        if (_isPollingUltrasound) {
-          _isPollingUltrasound = false;
-          _ultrasoundPollTimer?.cancel();
-          _ultrasoundPollTimer = null;
-        }
-      }
-
-      if (cmdClean.startsWith('avoidance')) {
-        _activeMode = 'avoidance';
-      } else if (cmdClean.startsWith('line_follower')) {
-        _activeMode = 'line_follower';
-      } else if (cmdClean.startsWith('force')) {
-        _activeMode = 'force';
-      } else if (cmdClean.startsWith('stop') ||
-          cmdClean.startsWith('forward') ||
-          cmdClean.startsWith('backward') ||
-          cmdClean.startsWith('left') ||
-          cmdClean.startsWith('right') ||
-          cmdClean.startsWith('happy') ||
-          cmdClean.startsWith('victory') ||
-          cmdClean.startsWith('sad') ||
-          cmdClean.startsWith('sleeping') ||
-          cmdClean.startsWith('confused') ||
-          cmdClean.startsWith('fail') ||
-          cmdClean.startsWith('fart') ||
-          cmdClean.startsWith('love') ||
-          cmdClean.startsWith('fretful') ||
-          cmdClean.startsWith('magic') ||
-          cmdClean.startsWith('sing') ||
-          cmdClean.startsWith('walk_test') ||
-          cmdClean.startsWith('ultrasound')) {
-        _activeMode = null;
-      }
-      notifyListeners();
-
-      try {
         await _writeCharacteristic!.write(
-          command.codeUnits,
+          cmdToSend.codeUnits,
           withoutResponse: _writeCharacteristic!.properties.writeWithoutResponse,
         );
-      } catch (e) {
-        addLog("BLE write failed: $e");
-        await disconnect();
+
+        await Future.delayed(const Duration(milliseconds: 30));
       }
+    } catch (e) {
+      addLog("BLE write failed: $e");
+      await disconnect();
     } finally {
-      if (_connectedDevice != null) {
-        _startWebKeepAliveTimer();
-      }
+      _isSending = false;
     }
   }
 
@@ -669,33 +574,14 @@ class BluetoothManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> _requestPermissions() async {
-    if (kIsWeb) return true;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      final scanStatus = await Permission.bluetoothScan.request();
-      final connectStatus = await Permission.bluetoothConnect.request();
-      final locationStatus = await Permission.location.request();
-      return scanStatus.isGranted &&
-          connectStatus.isGranted &&
-          locationStatus.isGranted;
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      final bluetoothStatus = await Permission.bluetooth.request();
-      return bluetoothStatus.isGranted;
-    }
-    return true;
-  }
-
   @override
   void dispose() {
-    _adapterStateSubscription?.cancel();
     _scanSubscription?.cancel();
     _connectionSubscription?.cancel();
-    _notifySubscription?.cancel();
-
     _distanceClearTimer?.cancel();
     _ultrasoundPollTimer?.cancel();
-    _webKeepAliveTimer?.cancel();
-
+    _lineSensorClearTimer?.cancel();
+    _lineSensorPollTimer?.cancel();
     super.dispose();
   }
 }

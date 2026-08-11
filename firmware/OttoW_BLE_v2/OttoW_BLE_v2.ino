@@ -35,8 +35,8 @@
 #ifdef ARDUINO_ARCH_ESP32
 #define LINE_SENSOR_RIGHT 5
 #define LINE_SENSOR_LEFT 6
-#define TRIG 4
-#define ECHO 7
+#define TRIG 0
+#define ECHO 1
 #else
 #define LINE_SENSOR_RIGHT A0
 #define LINE_SENSOR_LEFT A1
@@ -581,8 +581,7 @@ void Stop() {
 }
 
 void Avoidance() {
-  long dist = ultrasound_distance();
-  if (dist > 0 && dist < ultrasound_threeshold) {
+  if (ultrasound_distance() < ultrasound_threeshold) {
     Backward();
     delay(500);
     Stop();
@@ -591,9 +590,8 @@ void Avoidance() {
     delay(500);
     Stop();
     delay(100);
-  } else {
-    Forward();
   }
+  Forward();
 }
 
 void LineFollower() {

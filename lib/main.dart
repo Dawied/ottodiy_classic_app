@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'bluetooth_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'widgets/connection_modal.dart';
 import 'widgets/classic_tab.dart';
 import 'widgets/wheels_tab.dart';
 import 'widgets/console_panel.dart';
@@ -207,22 +206,6 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  void _showConnectionModal() {
-    if (!_btManager.isScanning && _btManager.connectedDevice == null) {
-      _btManager.startScan();
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF111827),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => ConnectionModal(btManager: _btManager),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -251,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 onPressed: isConnected
                     ? () => _btManager.disconnect()
-                    : _showConnectionModal,
+                    : () => _btManager.startScan(),
               ),
             ),
             title: Column(
