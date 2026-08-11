@@ -164,6 +164,7 @@ int speed_stop = 90;
 int right_threeshold = 35;
 int left_threeshold = 35;
 int ultrasound_threeshold = 15;
+int avoidance_sound = 0;
 int rightValue, leftValue = 0;
 String command = "";
 int current_speed_index = 2;
@@ -472,6 +473,14 @@ void checkBluetooth() {
         Serial.println(ultrasound_threeshold);
       }
     }
+  } else if (strncmp(buffer, "avoidance_sound", 15) == 0 || strncmp(buffer, "avoid_sound", 11) == 0) {
+    char *p = buffer;
+    while (*p && (*p < '0' || *p > '9')) p++;
+    if (*p) {
+      avoidance_sound = atoi(p);
+      Serial.print("Updated avoidance sound: ");
+      Serial.println(avoidance_sound);
+    }
   } else if (strncmp(buffer, "avoidance", 9) == 0) command = "avoidance";
   else if (strncmp(buffer, "line_follower", 13) == 0) command = "linefollower";
   else if (strncmp(buffer, "ultrasound", 10) == 0) {
@@ -594,6 +603,9 @@ void Stop() {
 void Avoidance() {
   long dist = ultrasound_distance();
   if (dist > 0 && dist < ultrasound_threeshold) {
+    if (avoidance_sound > 0) {
+      sing(avoidance_sound);
+    }
     Backward();
     delay(500);
     Stop();

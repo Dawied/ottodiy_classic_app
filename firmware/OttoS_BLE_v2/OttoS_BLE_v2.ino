@@ -41,6 +41,7 @@
 int move_speed[] = {3000, 2000, 1000, 750, 500, 250};
 int n = 2;
 int ultrasound_threeshold = 15;
+int avoidance_sound = 0;
 String command = "";
 
 int v;
@@ -144,6 +145,27 @@ void checkBluetooth() {
       Stop();
       bluetooth.print(ultrasound_distance());
     }
+    else if (strstr(charBuffer, "avoidance_dist") == &charBuffer[0] || strstr(charBuffer, "avoid_dist") == &charBuffer[0]) {
+      char *p = charBuffer;
+      while (*p && (*p < '0' || *p > '9')) p++;
+      if (*p) {
+        int dist = atoi(p);
+        if (dist >= 5 && dist <= 100) {
+          ultrasound_threeshold = dist;
+          Serial.print("Updated avoidance threshold: ");
+          Serial.println(ultrasound_threeshold);
+        }
+      }
+    }
+    else if (strstr(charBuffer, "avoidance_sound") == &charBuffer[0] || strstr(charBuffer, "avoid_sound") == &charBuffer[0]) {
+      char *p = charBuffer;
+      while (*p && (*p < '0' || *p > '9')) p++;
+      if (*p) {
+        avoidance_sound = atoi(p);
+        Serial.print("Updated avoidance sound: ");
+        Serial.println(avoidance_sound);
+      }
+    }
     else if (strstr(charBuffer, "avoidance") == &charBuffer[0]) {
       command = "avoidance";
     }
@@ -242,16 +264,22 @@ void Stop() {
 }
 
 void Avoidance() {
-  if (ultrasound_distance() <= ultrasound_threeshold) {
-    Ottobot.playGesture(OttoConfused);
+  long dist = ultrasound_distance();
+  if (dist > 0 && dist <= ultrasound_threeshold) {
+    if (avoidance_sound > 0) {
+      Ottobot.sing(avoidance_sound);
+    } else {
+      Ottobot.playGesture(OttoConfused);
+    }
     for (int count=0 ; count<2 ; count++) {
-      Ottobot.walk(1,move_speed[n],-1); // BACKWARD
+      Ottobot.walk(1, move_speed[n], -1); // BACKWARD
     }
     for (int count=0 ; count<4 ; count++) {
-      Ottobot.turn(1,move_speed[n],1); // LEFT
+      Ottobot.turn(1, move_speed[n], 1); // LEFT
     }
+  } else {
+    Ottobot.walk(1, move_speed[n], 1); // FORWARD
   }
-  Ottobot.walk(1,move_speed[n],1); // FORWARD
 }
 
 void UseForce() {

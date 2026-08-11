@@ -51,6 +51,9 @@ class ClassicModesSection extends StatelessWidget {
                                   'avoidance_dist${btManager.avoidanceDistance}\n',
                                 );
                                 btManager.sendCommand(
+                                  'avoidance_sound${btManager.avoidanceSound}\n',
+                                );
+                                btManager.sendCommand(
                                   'avoidance${btManager.speedIndex}\n',
                                 );
                               }
@@ -126,6 +129,52 @@ class ClassicModesSection extends StatelessWidget {
                                       );
                                     },
                                   ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Sound:',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        value: btManager.avoidanceSound,
+                                        isDense: true,
+                                        dropdownColor:
+                                            const Color(0xFF0F172A),
+                                        style: const TextStyle(
+                                          color: Colors.lightGreenAccent,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.arrow_drop_down,
+                                          color: Colors.lightGreenAccent,
+                                          size: 16,
+                                        ),
+                                        items: BluetoothManager
+                                            .availableSounds.entries
+                                            .map((entry) {
+                                          return DropdownMenuItem<int>(
+                                            value: entry.key,
+                                            child: Text(entry.value),
+                                          );
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            btManager.setAvoidanceSound(val);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -67,8 +67,32 @@ class BluetoothManager extends ChangeNotifier {
   bool get isPollingLineSensor => _isPollingLineSensor;
   Timer? _lineSensorPollTimer;
 
+  static const Map<int, String> availableSounds = {
+    0: 'No Sound',
+    1: 'Connection',
+    2: 'Disconnection',
+    3: 'Button Pushed',
+    4: 'Mode 1',
+    5: 'Mode 2',
+    6: 'Surprise',
+    7: 'OhOoh',
+    8: 'OhOoh 2',
+    9: 'Cuddly',
+    10: 'Sleeping',
+    12: 'Happy',
+    13: 'Super Happy',
+    14: 'Sad',
+    15: 'Confused',
+    17: 'Fart 1',
+    18: 'Fart 2',
+    19: 'Fart 3',
+  };
+
   int _avoidanceDistance = 15;
   int get avoidanceDistance => _avoidanceDistance;
+
+  int _avoidanceSound = 0; // Default to 0 (No Sound)
+  int get avoidanceSound => _avoidanceSound;
 
   int _speedIndex = 2; // Default to speed index 2
   int get speedIndex => _speedIndex;
@@ -117,6 +141,7 @@ class BluetoothManager extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _avoidanceDistance = prefs.getInt('avoidance_distance') ?? 15;
+      _avoidanceSound = prefs.getInt('avoidance_sound') ?? 0;
       notifyListeners();
     } catch (_) {}
   }
@@ -135,6 +160,22 @@ class BluetoothManager extends ChangeNotifier {
 
       if (_connectedDevice != null) {
         sendCommand('avoidance_dist$dist\n');
+      }
+    }
+  }
+
+  void setAvoidanceSound(int soundId) async {
+    if (_avoidanceSound != soundId) {
+      _avoidanceSound = soundId;
+      notifyListeners();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('avoidance_sound', soundId);
+      } catch (_) {}
+
+      if (_connectedDevice != null) {
+        sendCommand('avoidance_sound$soundId\n');
       }
     }
   }
