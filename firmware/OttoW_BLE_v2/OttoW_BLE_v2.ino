@@ -472,6 +472,20 @@ void checkBluetooth() {
     Serial.print("Ultrasound distance: ");
     Serial.println(dist);
     bluetooth->write(String(dist));
+  } else if (strncmp(buffer, "linesensor", 10) == 0 || strncmp(buffer, "line_status", 11) == 0) {
+#if defined(ARDUINO_ARCH_ESP32)
+    int rVal = digitalRead(LINE_SENSOR_RIGHT);
+    int lVal = digitalRead(LINE_SENSOR_LEFT);
+#else
+    int rAnalog = analogRead(LINE_SENSOR_RIGHT);
+    int lAnalog = analogRead(LINE_SENSOR_LEFT);
+    int rVal = (rAnalog > right_threeshold) ? 1 : 0;
+    int lVal = (lAnalog > left_threeshold) ? 1 : 0;
+#endif
+    String res = "LINE:" + String(lVal) + "," + String(rVal);
+    Serial.print("Line status: ");
+    Serial.println(res);
+    bluetooth->write(res);
   } else if (strncmp(buffer, "sing", 4) == 0) {
     command = "";
     char *p = buffer + 4;
@@ -567,7 +581,8 @@ void Stop() {
 }
 
 void Avoidance() {
-  if (ultrasound_distance() < ultrasound_threeshold) {
+  long dist = ultrasound_distance();
+  if (dist > 0 && dist < ultrasound_threeshold) {
     Backward();
     delay(500);
     Stop();
@@ -576,8 +591,9 @@ void Avoidance() {
     delay(500);
     Stop();
     delay(100);
+  } else {
+    Forward();
   }
-  Forward();
 }
 
 void LineFollower() {
@@ -586,13 +602,14 @@ void LineFollower() {
   leftValue = digitalRead(LINE_SENSOR_LEFT);
 
   // Digital IR sensors: HIGH (1) when over black line, LOW (0) over white surface
-  if (rightValue == LOW && leftValue == LOW) {
+  // Line runs IN BETWEEN sensors: both sensors read LOW (0,0) over white surface when moving forward
+  if (leftValue == LOW && rightValue == LOW) {
     Forward();
   } else if (leftValue == HIGH && rightValue == LOW) {
     Left();
-  } else if (rightValue == HIGH && leftValue == LOW) {
+  } else if (leftValue == LOW && rightValue == HIGH) {
     Right();
-  } else if (rightValue == HIGH && leftValue == HIGH) {
+  } else if (leftValue == HIGH && rightValue == HIGH) {
     Stop();
   }
 #else
