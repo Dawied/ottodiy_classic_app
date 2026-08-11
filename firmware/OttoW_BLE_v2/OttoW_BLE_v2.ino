@@ -461,6 +461,17 @@ void checkBluetooth() {
   else if (strncmp(buffer, "stop", 4) == 0) {
     command = "";
     Stop();
+  } else if (strncmp(buffer, "avoidance_dist", 14) == 0 || strncmp(buffer, "avoid_dist", 10) == 0) {
+    char *p = buffer;
+    while (*p && (*p < '0' || *p > '9')) p++;
+    if (*p) {
+      int dist = atoi(p);
+      if (dist >= 5 && dist <= 100) {
+        ultrasound_threeshold = dist;
+        Serial.print("Updated avoidance threshold: ");
+        Serial.println(ultrasound_threeshold);
+      }
+    }
   } else if (strncmp(buffer, "avoidance", 9) == 0) command = "avoidance";
   else if (strncmp(buffer, "line_follower", 13) == 0) command = "linefollower";
   else if (strncmp(buffer, "ultrasound", 10) == 0) {
@@ -581,7 +592,8 @@ void Stop() {
 }
 
 void Avoidance() {
-  if (ultrasound_distance() < ultrasound_threeshold) {
+  long dist = ultrasound_distance();
+  if (dist > 0 && dist < ultrasound_threeshold) {
     Backward();
     delay(500);
     Stop();
@@ -590,8 +602,9 @@ void Avoidance() {
     delay(500);
     Stop();
     delay(100);
+  } else {
+    Forward();
   }
-  Forward();
 }
 
 void LineFollower() {
