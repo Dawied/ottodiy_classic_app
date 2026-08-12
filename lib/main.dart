@@ -155,13 +155,13 @@ class _HomeScreenState extends State<HomeScreen>
   void _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final lastTab = prefs.getInt('last_open_tab') ?? 0;
-    _classicSpeed = prefs.getInt('speed_classic') ?? 2;
     _wheelsSpeed = prefs.getInt('speed_wheels') ?? 2;
+    _classicSpeed = prefs.getInt('speed_classic') ?? 2;
 
     if (mounted) {
       setState(() {
         _tabController!.index = lastTab;
-        _btManager.speedIndex = (lastTab == 0) ? _classicSpeed : _wheelsSpeed;
+        _btManager.speedIndex = (lastTab == 0) ? _wheelsSpeed : _classicSpeed;
       });
     }
   }
@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen>
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('last_open_tab', index);
       setState(() {
-        _btManager.speedIndex = (index == 0) ? _classicSpeed : _wheelsSpeed;
+        _btManager.speedIndex = (index == 0) ? _wheelsSpeed : _classicSpeed;
       });
     }
   }
@@ -181,14 +181,14 @@ class _HomeScreenState extends State<HomeScreen>
     final index = _tabController?.index ?? 0;
     final currentSpeed = _btManager.speedIndex;
     if (index == 0) {
-      if (_classicSpeed != currentSpeed) {
-        _classicSpeed = currentSpeed;
-        _saveSpeed('speed_classic', currentSpeed);
-      }
-    } else {
       if (_wheelsSpeed != currentSpeed) {
         _wheelsSpeed = currentSpeed;
         _saveSpeed('speed_wheels', currentSpeed);
+      }
+    } else {
+      if (_classicSpeed != currentSpeed) {
+        _classicSpeed = currentSpeed;
+        _saveSpeed('speed_classic', currentSpeed);
       }
     }
   }
@@ -293,8 +293,8 @@ class _HomeScreenState extends State<HomeScreen>
                     TabBar(
                       controller: _tabController,
                       tabs: const [
-                        Tab(text: "Classic"),
                         Tab(text: "Wheels"),
+                        Tab(text: "Classic"),
                       ],
                       indicatorColor: const Color(0xFF00E5FF),
                       labelColor: const Color(0xFF00E5FF),
@@ -315,8 +315,8 @@ class _HomeScreenState extends State<HomeScreen>
                         child: TabBarView(
                           controller: _tabController,
                           children: [
-                            ClassicTab(btManager: _btManager),
                             WheelsTab(btManager: _btManager),
+                            ClassicTab(btManager: _btManager),
                           ],
                         ),
                       ),
