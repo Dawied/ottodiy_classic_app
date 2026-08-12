@@ -17,12 +17,12 @@ class WheelsTab extends StatelessWidget {
       builder: (context, _) {
         final isConnected = btManager.connectedDevice != null;
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(6.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DriveSection(btManager: btManager),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Opacity(
                 opacity: isConnected ? 1.0 : 0.4,
                 child: AbsorbPointer(
@@ -30,9 +30,9 @@ class WheelsTab extends StatelessWidget {
                   child: SongsPanel(btManager: btManager, title: 'SOUNDS'),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               WheelsModesSection(btManager: btManager),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               WheelsUtilities(btManager: btManager),
             ],
           ),

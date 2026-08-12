@@ -20,33 +20,48 @@ class ControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HoverScale(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        height: 50,
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isActive ? color : const Color(0xFF1E293B),
-            foregroundColor: isActive ? Colors.black : color,
-            side: BorderSide(
-              color: isActive ? color : color.withValues(alpha: 0.5),
-              width: isActive ? 2 : 1,
-            ),
-            shape: RoundedRectangleBorder(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: isActive ? color : const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive ? color : color.withValues(alpha: 0.5),
+                width: isActive ? 2 : 1,
+              ),
+              boxShadow: [
+                if (isActive)
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
             ),
-            elevation: isActive ? 6 : 2,
-            shadowColor: isActive ? color : Colors.black,
-          ),
-          onPressed: onPressed,
-          icon: Icon(icon, size: 22),
-          label: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              fontSize: 13,
-              color: isActive ? Colors.black : color,
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: isActive ? Colors.black : color),
+                Expanded(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 13,
+                      color: isActive ? Colors.black : color,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+              ],
             ),
           ),
         ),

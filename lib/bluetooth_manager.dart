@@ -76,7 +76,6 @@ class BluetoothManager extends ChangeNotifier {
     5: 'Mode 2',
     6: 'Surprise',
     7: 'OhOoh',
-    8: 'OhOoh 2',
     9: 'Cuddly',
     10: 'Sleeping',
     12: 'Happy',
@@ -93,6 +92,9 @@ class BluetoothManager extends ChangeNotifier {
 
   int _avoidanceSound = 0; // Default to 0 (No Sound)
   int get avoidanceSound => _avoidanceSound;
+
+  int _lineSteering = 100; // Default 100% steer sharpness (original hard spin)
+  int get lineSteering => _lineSteering;
 
   int _speedIndex = 2; // Default to speed index 2
   int get speedIndex => _speedIndex;
@@ -142,6 +144,7 @@ class BluetoothManager extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _avoidanceDistance = prefs.getInt('avoidance_distance') ?? 15;
       _avoidanceSound = prefs.getInt('avoidance_sound') ?? 0;
+      _lineSteering = prefs.getInt('line_steering') ?? 100;
       notifyListeners();
     } catch (_) {}
   }
@@ -176,6 +179,24 @@ class BluetoothManager extends ChangeNotifier {
 
       if (_connectedDevice != null) {
         sendCommand('avoidance_sound$soundId\n');
+      }
+    }
+  }
+
+  void setLineSteering(int val) async {
+    if (val < 0) val = 0;
+    if (val > 100) val = 100;
+    if (_lineSteering != val) {
+      _lineSteering = val;
+      notifyListeners();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('line_steering', val);
+      } catch (_) {}
+
+      if (_connectedDevice != null) {
+        sendCommand('line_steer$val\n');
       }
     }
   }

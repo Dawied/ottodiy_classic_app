@@ -284,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen>
               constraints: const BoxConstraints(maxWidth: 800),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
+                  horizontal: 12.0,
                   vertical: 12.0,
                 ),
                 child: Column(

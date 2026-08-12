@@ -21,10 +21,10 @@ class GesturesPanel extends StatelessWidget {
             letterSpacing: 1.0,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 6),
         Wrap(
-          spacing: 7,
-          runSpacing: 10,
+          spacing: 6,
+          runSpacing: 6,
           children: [
             SmallButton(
               'Happy',

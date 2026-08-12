@@ -29,7 +29,7 @@ class ClassicModesSection extends StatelessWidget {
                     letterSpacing: 1.0,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 2),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -38,7 +38,7 @@ class ClassicModesSection extends StatelessWidget {
                         children: [
                           ControlButton(
                             icon: Icons.remove_red_eye,
-                            label: 'AVOIDANCE',
+                            label: 'AVOID',
                             color: Colors.lightGreenAccent,
                             isActive: btManager.activeMode == 'avoidance',
                             onPressed: () {
@@ -58,15 +58,6 @@ class ClassicModesSection extends StatelessWidget {
                                 );
                               }
                             },
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Otto starts walking and avoids obstacles',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 11,
-                            ),
-                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Container(
@@ -118,8 +109,8 @@ class ClassicModesSection extends StatelessWidget {
                                     thumbColor: Colors.lightGreenAccent,
                                   ),
                                   child: Slider(
-                                    value:
-                                        btManager.avoidanceDistance.toDouble(),
+                                    value: btManager.avoidanceDistance
+                                        .toDouble(),
                                     min: 5.0,
                                     max: 40.0,
                                     divisions: 35,
@@ -147,8 +138,7 @@ class ClassicModesSection extends StatelessWidget {
                                       child: DropdownButton<int>(
                                         value: btManager.avoidanceSound,
                                         isDense: true,
-                                        dropdownColor:
-                                            const Color(0xFF0F172A),
+                                        dropdownColor: const Color(0xFF0F172A),
                                         style: const TextStyle(
                                           color: Colors.lightGreenAccent,
                                           fontSize: 11,
@@ -160,13 +150,15 @@ class ClassicModesSection extends StatelessWidget {
                                           size: 16,
                                         ),
                                         items: BluetoothManager
-                                            .availableSounds.entries
+                                            .availableSounds
+                                            .entries
                                             .map((entry) {
-                                          return DropdownMenuItem<int>(
-                                            value: entry.key,
-                                            child: Text(entry.value),
-                                          );
-                                        }).toList(),
+                                              return DropdownMenuItem<int>(
+                                                value: entry.key,
+                                                child: Text(entry.value),
+                                              );
+                                            })
+                                            .toList(),
                                         onChanged: (val) {
                                           if (val != null) {
                                             btManager.setAvoidanceSound(val);
@@ -188,7 +180,7 @@ class ClassicModesSection extends StatelessWidget {
                         children: [
                           ControlButton(
                             icon: Icons.sports_martial_arts,
-                            label: 'USE FORCE',
+                            label: 'FORCE',
                             color: Colors.lightBlueAccent,
                             isActive: btManager.activeMode == 'force',
                             onPressed: () {
@@ -202,15 +194,6 @@ class ClassicModesSection extends StatelessWidget {
                                 );
                               }
                             },
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Move your hand in front of Otto to have it react to it',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 11,
-                            ),
-                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),

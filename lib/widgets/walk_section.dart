@@ -22,7 +22,7 @@ class WalkSection extends StatelessWidget {
             letterSpacing: 1.0,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 2),
         // Joystick and Speed Slider Side-by-Side
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

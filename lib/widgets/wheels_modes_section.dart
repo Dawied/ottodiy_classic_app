@@ -38,7 +38,7 @@ class WheelsModesSection extends StatelessWidget {
                         children: [
                           ControlButton(
                             icon: Icons.remove_red_eye,
-                            label: 'AVOIDANCE',
+                            label: 'AVOID',
                             color: Colors.lightGreenAccent,
                             isActive: btManager.activeMode == 'avoidance',
                             onPressed: () {
@@ -58,15 +58,6 @@ class WheelsModesSection extends StatelessWidget {
                                 );
                               }
                             },
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Otto starts driving and avoids obstacles',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 11,
-                            ),
-                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Container(
@@ -188,7 +179,7 @@ class WheelsModesSection extends StatelessWidget {
                         children: [
                           ControlButton(
                             icon: Icons.navigation,
-                            label: 'LINE FOLLOWER',
+                            label: 'LINE',
                             color: Colors.lightBlueAccent,
                             isActive: btManager.activeMode == 'line_follower',
                             onPressed: () {
@@ -198,19 +189,77 @@ class WheelsModesSection extends StatelessWidget {
                                 );
                               } else {
                                 btManager.sendCommand(
+                                  'line_steer${btManager.lineSteering}\n',
+                                );
+                                btManager.sendCommand(
                                   'line_follower${btManager.speedIndex}\n',
                                 );
                               }
                             },
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Otto follows lines on the ground',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 11,
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
-                            textAlign: TextAlign.center,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Steer Sharpness:',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${btManager.lineSteering}%',
+                                      style: const TextStyle(
+                                        color: Colors.lightBlueAccent,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 3,
+                                    thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 6,
+                                    ),
+                                    overlayShape: const RoundSliderOverlayShape(
+                                      overlayRadius: 12,
+                                    ),
+                                    activeTrackColor: Colors.lightBlueAccent,
+                                    inactiveTrackColor: Colors.white10,
+                                    thumbColor: Colors.lightBlueAccent,
+                                  ),
+                                  child: Slider(
+                                    value: btManager.lineSteering.toDouble(),
+                                    min: 0.0,
+                                    max: 100.0,
+                                    divisions: 20,
+                                    onChanged: (val) {
+                                      btManager.setLineSteering(
+                                        val.round(),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),

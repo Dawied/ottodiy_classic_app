@@ -165,6 +165,7 @@ int right_threeshold = 35;
 int left_threeshold = 35;
 int ultrasound_threeshold = 15;
 int avoidance_sound = 0;
+int line_steer = 100;
 int rightValue, leftValue = 0;
 String command = "";
 int current_speed_index = 2;
@@ -481,6 +482,16 @@ void checkBluetooth() {
       Serial.print("Updated avoidance sound: ");
       Serial.println(avoidance_sound);
     }
+  } else if (strncmp(buffer, "line_steer", 10) == 0) {
+    char *p = buffer;
+    while (*p && (*p < '0' || *p > '9')) p++;
+    if (*p) {
+      line_steer = atoi(p);
+      if (line_steer < 0) line_steer = 0;
+      if (line_steer > 100) line_steer = 100;
+      Serial.print("Updated line steer sharpness: ");
+      Serial.println(line_steer);
+    }
   } else if (strncmp(buffer, "avoidance", 9) == 0) command = "avoidance";
   else if (strncmp(buffer, "line_follower", 13) == 0) command = "linefollower";
   else if (strncmp(buffer, "ultrasound", 10) == 0) {
@@ -619,6 +630,42 @@ void Avoidance() {
   }
 }
 
+void DifferentialTurnLeft() {
+  attachServos();
+  double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
+  int right_speed = speed_stop + (speed_right_forward - speed_stop) * factor;
+
+  int left_speed;
+  if (line_steer <= 50) {
+    double inner_factor = factor * (1.0 - (line_steer / 50.0));
+    left_speed = speed_stop + (speed_left_forward - speed_stop) * inner_factor;
+  } else {
+    double rev_factor = factor * ((line_steer - 50.0) / 50.0);
+    left_speed = speed_stop + (speed_left_backward - speed_stop) * rev_factor;
+  }
+
+  servo_left.write(left_speed);
+  servo_right.write(right_speed);
+}
+
+void DifferentialTurnRight() {
+  attachServos();
+  double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
+  int left_speed = speed_stop + (speed_left_forward - speed_stop) * factor;
+
+  int right_speed;
+  if (line_steer <= 50) {
+    double inner_factor = factor * (1.0 - (line_steer / 50.0));
+    right_speed = speed_stop + (speed_right_forward - speed_stop) * inner_factor;
+  } else {
+    double rev_factor = factor * ((line_steer - 50.0) / 50.0);
+    right_speed = speed_stop + (speed_right_backward - speed_stop) * rev_factor;
+  }
+
+  servo_left.write(left_speed);
+  servo_right.write(right_speed);
+}
+
 void LineFollower() {
 #if defined(ARDUINO_ARCH_ESP32)
   rightValue = digitalRead(LINE_SENSOR_RIGHT);
@@ -629,9 +676,9 @@ void LineFollower() {
   if (leftValue == LOW && rightValue == LOW) {
     Forward();
   } else if (leftValue == HIGH && rightValue == LOW) {
-    Left();
+    DifferentialTurnLeft();
   } else if (leftValue == LOW && rightValue == HIGH) {
-    Right();
+    DifferentialTurnRight();
   } else if (leftValue == HIGH && rightValue == HIGH) {
     Stop();
   }

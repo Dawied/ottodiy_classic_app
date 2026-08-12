@@ -18,7 +18,7 @@ class ClassicTab extends StatelessWidget {
       builder: (context, _) {
         final isConnected = btManager.connectedDevice != null;
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(6.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -30,17 +30,17 @@ class ClassicTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       WalkSection(btManager: btManager),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       GesturesPanel(btManager: btManager),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 6),
                       SongsPanel(btManager: btManager),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               ClassicModesSection(btManager: btManager),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               ClassicUtilities(btManager: btManager),
             ],
           ),
