@@ -28,15 +28,161 @@
 #define BLE_RX 12
 #define BUZZER 13
 
-#if defined(ARDUINO_ARCH_ESP32)
-  #include "BluetoothSerial.h"
-  String device_name = "Otto BT Esp32";
-  BluetoothSerial bluetooth;
-#else
-  #include <SoftwareSerial.h>
-  String device_name = "Otto BT";
-  SoftwareSerial bluetooth(BLE_TX, BLE_RX);
+class BTInterface {
+public:
+  virtual void begin(const char* name) = 0;
+  virtual bool available() = 0;
+  virtual String readLine() = 0;
+  virtual void write(const String& msg) = 0;
+};
+
+#if !defined(ARDUINO_ARCH_ESP32)
+
+#include <SoftwareSerial.h>
+
+class BT_HM10 : public BTInterface {
+  SoftwareSerial serial;
+
+public:
+  BT_HM10(uint8_t rx, uint8_t tx)
+    : serial(rx, tx) {}
+
+  void begin(const char* name) override {
+    serial.begin(9600);
+    serial.print("AT+NAME");
+    serial.println(name);
+  }
+
+  bool available() override {
+    return serial.available();
+  }
+
+  String readLine() override {
+    return serial.readStringUntil('\n');
+  }
+
+  void write(const String& msg) override {
+    serial.println(msg);
+  }
+};
+
 #endif
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+
+#include "BluetoothSerial.h"
+
+class BT_ESP32Classic : public BTInterface {
+  BluetoothSerial bt;
+
+public:
+  void begin(const char* name) override {
+    bt.begin(name);
+  }
+
+  bool available() override {
+    return bt.available();
+  }
+
+  String readLine() override {
+    return bt.readStringUntil('\n');
+  }
+
+  void write(const String& msg) override {
+    bt.println(msg);
+  }
+};
+
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32)
+
+#include <NimBLEDevice.h>
+
+static String bleBuffer = "";
+
+class BT_ESP32BLE : public BTInterface {
+  NimBLECharacteristic* tx;
+  NimBLECharacteristic* rx;
+
+public:
+  void begin(const char* name) override {
+    NimBLEDevice::init(name);
+    NimBLEDevice::setDeviceName(name);
+
+    NimBLEServer* server = NimBLEDevice::createServer();
+    NimBLEService* service = server->createService(
+      "6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+
+    rx = service->createCharacteristic(
+      "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+      NIMBLE_PROPERTY::WRITE);
+
+    tx = service->createCharacteristic(
+      "6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
+      NIMBLE_PROPERTY::NOTIFY);
+
+    class RXCallback : public NimBLECharacteristicCallbacks {
+      void onWrite(NimBLECharacteristic* pCharacteristic,
+                   NimBLEConnInfo& connInfo) {
+        std::string v = pCharacteristic->getValue();
+        if (!v.empty()) {
+          bleBuffer.concat(v.c_str());
+        }
+      }
+    };
+
+    rx->setCallbacks(new RXCallback());
+    service->start();
+
+    NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
+    adv->addServiceUUID("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+
+    NimBLEAdvertisementData scanResponseData;
+    scanResponseData.setName(name);
+    adv->setScanResponseData(scanResponseData);
+
+    adv->start();
+  }
+
+  bool available() override {
+    return bleBuffer.indexOf('\n') != -1;
+  }
+
+  String readLine() override {
+    int idx = bleBuffer.indexOf('\n');
+    if (idx == -1) return "";
+
+    String line = bleBuffer.substring(0, idx);
+    bleBuffer = bleBuffer.substring(idx + 1);
+    return line;
+  }
+
+  void write(const String& msg) override {
+    tx->setValue(msg.c_str());
+    tx->notify();
+  }
+};
+
+#endif
+
+BTInterface* bluetooth;
+
+void setupBluetooth() {
+#if defined(ARDUINO_ARCH_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  static BT_ESP32BLE bt;
+#else
+  static BT_ESP32Classic bt;
+#endif
+  bluetooth = &bt;
+#else
+  static BT_HM10 bt(BLE_TX, BLE_RX);
+  bluetooth = &bt;
+#endif
+
+  bluetooth->begin("OttoClassic");
+}
 
 int move_speed[] = {3000, 2000, 1000, 750, 500, 250};
 int n = 2;
@@ -80,13 +226,7 @@ void setup() {
   pinMode(TRIG, OUTPUT); 
   pinMode(ECHO, INPUT);
 
-#if defined(ARDUINO_ARCH_ESP32)
-  bluetooth.begin(device_name);
-  //bluetooth.deleteAllBondedDevices(); // Uncomment this to delete paired devices; Must be called after begin
-#else
-  bluetooth.begin(9600);
-  bluetooth.print("AT+NAME" + device_name);
-#endif
+  setupBluetooth();
   
   forceHome();
   v = 0;
@@ -115,14 +255,19 @@ void loop() {
 }
 
 void checkBluetooth() {
-  char charBuffer[20];//most we would ever see
+  if (!bluetooth->available()) return;
+
+  String cmd = bluetooth->readLine();
+  cmd.trim();
+
+  char charBuffer[40];
+  cmd.toCharArray(charBuffer, 40);
+
+  Serial.print("Received: ");
+  Serial.println(charBuffer);
   
-  if (bluetooth.available() > 0) {
-    int numberOfBytesReceived = bluetooth.readBytesUntil('\n', charBuffer, 19);
-    charBuffer[numberOfBytesReceived] = NULL;
-    Serial.print("Received: ");
-    Serial.println(charBuffer);
-    
+  int numberOfBytesReceived = strlen(charBuffer);
+  if (numberOfBytesReceived > 0) {
     n = charBuffer[numberOfBytesReceived-1]-'0';
     
     if (strstr(charBuffer, "forward") == &charBuffer[0]) {
@@ -143,7 +288,7 @@ void checkBluetooth() {
     }
     else if (strstr(charBuffer, "ultrasound") == &charBuffer[0]) {
       Stop();
-      bluetooth.print(ultrasound_distance());
+      bluetooth->write(String(ultrasound_distance()));
     }
     else if (strstr(charBuffer, "avoidance_dist") == &charBuffer[0] || strstr(charBuffer, "avoid_dist") == &charBuffer[0]) {
       char *p = charBuffer;
