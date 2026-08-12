@@ -15,8 +15,558 @@
 *    v2 By: David Pront
 */
 
-#include <Otto.h>
 #include <EEPROM.h>
+
+#ifdef ARDUINO_ARCH_ESP32
+  #include <ESP32Servo.h>
+#else
+  #include <Servo.h>
+#endif
+
+// Directions
+#ifndef FORWARD
+#define FORWARD 1
+#define BACKWARD -1
+#define LEFT 1
+#define RIGHT -1
+#endif
+
+// Gestures
+#define OttoHappy 1
+#define OttoSuperHappy 2
+#define OttoSad 3
+#define OttoVictory 4
+#define OttoSleeping 5
+#define OttoConfused 6
+#define OttoFail 7
+#define OttoFart 8
+#define OttoLove 9
+#define OttoFretful 10
+#define OttoMagic 11
+#define OttoWave 12
+
+// Sounds
+#define S_connection 0
+#define S_disconnection 1
+#define S_buttonPushed 2
+#define S_mode1 3
+#define S_mode2 4
+#define S_mode3 5
+#define S_surprise 6
+#define S_OhOoh 7
+#define S_OhOoh2 8
+#define S_cuddly 9
+#define S_sleeping 10
+#define S_happy 11
+#define S_superHappy 12
+#define S_happy_short 13
+#define S_sad 14
+#define S_confused 15
+#define S_fart 16
+
+// Musical Notes
+#define note_C4 262
+#define note_D4 294
+#define note_E4 330
+#define note_F4 349
+#define note_G4 392
+#define note_A4 440
+#define note_B4 494
+#define note_C5 523
+#define note_D5 587
+#define note_E5 659
+#define note_F5 698
+#define note_G5 784
+#define note_A5 880
+#define note_B5 988
+#define note_C6 1047
+#define note_D6 1175
+#define note_E6 1319
+#define note_F6 1397
+#define note_G6 1568
+#define note_A6 1760
+#define note_B6 1976
+
+class Oscillator {
+private:
+  Servo _servo;
+  int _position;
+  int _target;
+  int _origin;
+  int _previous;
+  int _diff;
+  int _inc;
+  double _period;
+  double _amplitude;
+  double _phase;
+  double _offset;
+  double _trim;
+  double _number_cycles;
+  double _time_previous;
+  double _time_current;
+  bool _stop;
+  bool _is_attached;
+
+public:
+  Oscillator() {
+    _position = 90;
+    _target = 90;
+    _origin = 90;
+    _previous = 90;
+    _diff = 0;
+    _inc = 0;
+    _period = 2000;
+    _amplitude = 45;
+    _phase = 0;
+    _offset = 0;
+    _trim = 0;
+    _number_cycles = 0;
+    _time_previous = 0;
+    _time_current = 0;
+    _stop = true;
+    _is_attached = false;
+  }
+
+  void attach(int pin) {
+    if (!_is_attached) {
+      _servo.attach(pin);
+      _is_attached = true;
+    }
+  }
+
+  void detach() {
+    if (_is_attached) {
+      _servo.detach();
+      _is_attached = false;
+    }
+  }
+
+  void SetPeriod(int period) { _period = period; }
+  void SetAmplitude(int amplitude) { _amplitude = amplitude; }
+  void SetPhase(int phase) { _phase = phase; }
+  void SetOffset(int offset) { _offset = offset; }
+  void SetTrim(int trim) { _trim = trim; }
+
+  void SetPosition(int position) {
+    _position = position;
+    if (_is_attached) {
+      _servo.write(_position + _trim);
+    }
+  }
+
+  int getPosition() { return _position; }
+  int getTrim() { return _trim; }
+
+  void refresh() {
+    if (!_stop) {
+      _time_current = millis();
+      if (_time_current - _time_previous >= _inc) {
+        _time_previous = _time_current;
+        _position = _origin + _amplitude * sin(2 * PI * (_time_current / _period) + _phase * PI / 180) + _offset;
+        if (_is_attached) {
+          _servo.write(_position + _trim);
+        }
+      }
+    }
+  }
+
+  void stop() { _stop = true; }
+  void start() { _stop = false; _time_previous = millis(); }
+  void reset() { _time_previous = millis(); }
+};
+
+class Otto {
+private:
+  Oscillator osc[4];
+  int servo_pins[4];
+  int servo_trim[4];
+  int pinBuzzer;
+  unsigned long final_time;
+  unsigned long partial_time;
+  float increment[4];
+
+  void _tone(float noteFrequency, long noteDuration, int silentDuration = 0) {
+    if (pinBuzzer >= 0) {
+      if (noteFrequency > 0) {
+        tone(pinBuzzer, (unsigned int)noteFrequency, noteDuration);
+      }
+      delay(noteDuration);
+      if (silentDuration > 0) {
+        delay(silentDuration);
+      }
+    }
+  }
+
+public:
+  Otto() {
+    pinBuzzer = -1;
+    for (int i = 0; i < 4; i++) {
+      servo_trim[i] = 0;
+      servo_pins[i] = -1;
+    }
+  }
+
+  void init(int YL, int YR, int RL, int RR, bool load_calibration, int NoiseSensor, int Buzzer, int USTrigger, int USEcho) {
+    servo_pins[0] = YL;
+    servo_pins[1] = YR;
+    servo_pins[2] = RL;
+    servo_pins[3] = RR;
+    pinBuzzer = Buzzer;
+
+    if (pinBuzzer >= 0) {
+      pinMode(pinBuzzer, OUTPUT);
+    }
+
+    attachServos();
+
+    if (load_calibration) {
+      for (int i = 0; i < 4; i++) {
+        int8_t val = EEPROM.read(i);
+        if (val > 128) val -= 256;
+        servo_trim[i] = val;
+      }
+    }
+
+    for (int i = 0; i < 4; i++) {
+      osc[i].SetTrim(servo_trim[i]);
+    }
+    home();
+  }
+
+  void init(int YL, int YR, int RL, int RR, bool load_calibration = true, int Buzzer = -1) {
+    init(YL, YR, RL, RR, load_calibration, -1, Buzzer, -1, -1);
+  }
+
+  void attachServos() {
+    for (int i = 0; i < 4; i++) {
+      if (servo_pins[i] >= 0) {
+        osc[i].attach(servo_pins[i]);
+      }
+    }
+  }
+
+  void detachServos() {
+    for (int i = 0; i < 4; i++) {
+      osc[i].detach();
+    }
+  }
+
+  void setTrims(int YL, int YR, int RL, int RR) {
+    servo_trim[0] = YL;
+    servo_trim[1] = YR;
+    servo_trim[2] = RL;
+    servo_trim[3] = RR;
+    for (int i = 0; i < 4; i++) {
+      osc[i].SetTrim(servo_trim[i]);
+    }
+  }
+
+  void _moveServos(int time, int servo_target[]) {
+    attachServos();
+    if (time < 10) time = 10;
+    for (int i = 0; i < 4; i++) {
+      increment[i] = ((float)servo_target[i] - osc[i].getPosition()) / (time / 10.0);
+    }
+    final_time = millis() + time;
+    while (millis() < final_time) {
+      partial_time = millis() + 10;
+      for (int i = 0; i < 4; i++) {
+        osc[i].SetPosition(osc[i].getPosition() + increment[i]);
+      }
+      while (millis() < partial_time) {
+        // Wait 10ms step
+      }
+    }
+    for (int i = 0; i < 4; i++) {
+      osc[i].SetPosition(servo_target[i]);
+    }
+  }
+
+  void home() {
+    int homes[4] = {90, 90, 90, 90};
+    _moveServos(500, homes);
+  }
+
+  void oscillateServos(int A[4], int O[4], int T, double phase_diff[4], float cycle = 1) {
+    for (int i = 0; i < 4; i++) {
+      osc[i].SetAmplitude(A[i]);
+      osc[i].SetOffset(O[i]);
+      osc[i].SetPeriod(T);
+      osc[i].SetPhase(phase_diff[i]);
+      osc[i].start();
+    }
+
+    final_time = millis() + T * cycle;
+    while (millis() < final_time) {
+      for (int i = 0; i < 4; i++) {
+        osc[i].refresh();
+      }
+    }
+  }
+
+  void walk(float steps = 1, int T = 1000, int dir = FORWARD) {
+    int A[4] = {30, 30, 20, 20};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 90 * dir, 90 * dir};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void turn(float steps = 1, int T = 1000, int dir = LEFT) {
+    int A[4] = {30, 30, 20, 20};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 90 * dir, -90 * dir};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void bend(int steps = 1, int T = 1400, int dir = LEFT) {
+    int bend1[4] = {90, 90, 62, 35};
+    int bend2[4] = {90, 90, 62, 105};
+    int homes[4] = {90, 90, 90, 90};
+    for (int i = 0; i < steps; i++) {
+      if (dir == LEFT) {
+        _moveServos(T / 2, bend1);
+        _moveServos(T / 2, homes);
+      } else {
+        _moveServos(T / 2, bend2);
+        _moveServos(T / 2, homes);
+      }
+    }
+  }
+
+  void shakeLeg(int steps = 1, int T = 2000, int dir = LEFT) {
+    int shake1[4] = {90, 90, 58, 35};
+    int shake2[4] = {90, 90, 58, 120};
+    int homes[4] = {90, 90, 90, 90};
+    for (int i = 0; i < steps; i++) {
+      if (dir == LEFT) {
+        _moveServos(T / 4, shake1);
+        _moveServos(T / 4, shake2);
+        _moveServos(T / 4, shake1);
+        _moveServos(T / 4, homes);
+      } else {
+        _moveServos(T / 4, shake2);
+        _moveServos(T / 4, shake1);
+        _moveServos(T / 4, shake2);
+        _moveServos(T / 4, homes);
+      }
+    }
+  }
+
+  void crusaito(float steps = 1, int T = 1000, int h = 25, int dir = FORWARD) {
+    int A[4] = {25, 25, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {90, 90, 90 * dir, 90 * dir};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void moonwalker(float steps = 1, int T = 1000, int h = 25, int dir = LEFT) {
+    int A[4] = {0, 0, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 90 * dir, 90 * dir};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void flapping(float steps = 1, int T = 1000, int h = 25, int dir = FORWARD) {
+    int A[4] = {12, 12, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {-90 * dir, 90 * dir, -90 * dir, 90 * dir};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void swing(float steps = 1, int T = 1000, int h = 25) {
+    int A[4] = {25, 25, 0, 0};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 0, 0};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void tiptoeWaist(float steps = 1, int T = 1000, int h = 25) {
+    int A[4] = {25, 25, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 90, -90};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void jitter(float steps = 1, int T = 500, int h = 25) {
+    int A[4] = {h, h, 0, 0};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 0, 0};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void updown(float steps = 1, int T = 1000, int h = 25) {
+    int A[4] = {0, 0, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, -90, 90};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void ascendingWeek(float steps = 1, int T = 1000, int h = 25) {
+    int A[4] = {h, h, h, h};
+    int O[4] = {0, 0, 0, 0};
+    double phase_diff[4] = {0, 0, 90, 90};
+    for (int i = 0; i < steps; i++) {
+      oscillateServos(A, O, T, phase_diff, 1);
+    }
+  }
+
+  void sing(int songName) {
+    switch (songName) {
+      case S_connection:
+        _tone(note_E5, 80, 30);
+        _tone(note_A5, 80, 30);
+        _tone(note_E6, 80, 30);
+        break;
+      case S_disconnection:
+        _tone(note_E6, 80, 30);
+        _tone(note_A5, 80, 30);
+        _tone(note_E5, 80, 30);
+        break;
+      case S_buttonPushed:
+        _tone(note_C6, 50, 20);
+        _tone(note_D6, 50, 20);
+        break;
+      case S_mode1:
+        _tone(note_E6, 50, 30);
+        _tone(note_G6, 50, 30);
+        break;
+      case S_mode2:
+        _tone(note_G6, 50, 30);
+        _tone(note_E6, 50, 30);
+        break;
+      case S_mode3:
+        _tone(note_E6, 50, 30);
+        _tone(note_E6, 50, 30);
+        break;
+      case S_surprise:
+        _tone(note_C6, 100, 10);
+        _tone(note_G6, 200, 10);
+        break;
+      case S_OhOoh:
+      case S_OhOoh2:
+        _tone(note_C6, 200, 50);
+        _tone(note_G5, 400, 50);
+        break;
+      case S_cuddly:
+        _tone(note_A5, 100, 20);
+        _tone(note_C6, 100, 20);
+        _tone(note_E6, 200, 20);
+        break;
+      case S_sleeping:
+        _tone(note_E5, 300, 100);
+        _tone(note_C5, 400, 100);
+        break;
+      case S_happy:
+      case S_superHappy:
+        _tone(note_E5, 80, 20);
+        _tone(note_G5, 80, 20);
+        _tone(note_C6, 120, 20);
+        break;
+      case S_happy_short:
+        _tone(note_C6, 60, 10);
+        _tone(note_G6, 60, 10);
+        break;
+      case S_sad:
+        _tone(note_G5, 200, 50);
+        _tone(note_E5, 400, 50);
+        break;
+      case S_confused:
+        _tone(note_D5, 100, 30);
+        _tone(note_E5, 100, 30);
+        _tone(note_D5, 100, 30);
+        break;
+      case S_fart:
+        _tone(note_C4, 150, 10);
+        _tone(note_C4 / 2, 250, 10);
+        break;
+      default:
+        break;
+    }
+  }
+
+  void playGesture(int gesture) {
+    switch (gesture) {
+      case OttoHappy:
+        sing(S_happy);
+        home();
+        break;
+      case OttoSuperHappy:
+        sing(S_superHappy);
+        bend(2, 800, LEFT);
+        home();
+        break;
+      case OttoSad:
+        sing(S_sad);
+        bend(1, 1400, RIGHT);
+        home();
+        break;
+      case OttoVictory:
+        sing(S_mode1);
+        shakeLeg(1, 1500, LEFT);
+        home();
+        break;
+      case OttoSleeping:
+        sing(S_sleeping);
+        bend(1, 2000, LEFT);
+        home();
+        break;
+      case OttoConfused:
+        sing(S_confused);
+        bend(1, 1000, LEFT);
+        home();
+        break;
+      case OttoFail:
+        sing(S_sad);
+        bend(1, 1500, LEFT);
+        home();
+        break;
+      case OttoFart:
+        sing(S_fart);
+        shakeLeg(1, 1000, RIGHT);
+        home();
+        break;
+      case OttoLove:
+        sing(S_cuddly);
+        bend(1, 1200, LEFT);
+        home();
+        break;
+      case OttoFretful:
+        sing(S_confused);
+        shakeLeg(1, 800, LEFT);
+        home();
+        break;
+      case OttoMagic:
+        sing(S_surprise);
+        bend(2, 1000, RIGHT);
+        home();
+        break;
+      case OttoWave:
+        shakeLeg(2, 1000, LEFT);
+        home();
+        break;
+      default:
+        break;
+    }
+  }
+};
 
 #define LEFTLEG 2
 #define RIGHTLEG 3
