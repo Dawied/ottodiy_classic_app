@@ -44,6 +44,9 @@
 #define ECHO 9
 #endif
 
+#define BUTTON_OBSTACLE 20
+#define BUTTON_LINE 21
+
 // Self-contained sound note definitions (copied from Otto DIY Library)
 #define note_E5  659.26
 #define note_B5  987.77
@@ -59,6 +62,11 @@ void _tone(float noteFrequency, long noteDuration, int silentDuration) {
   delay(noteDuration);
   noTone(BUZZER);
   delay(silentDuration);
+}
+
+void doubleBeep() {
+  _tone(1500, 35, 30);
+  _tone(1500, 35, 10);
 }
 
 void bendTones(float initFrequency, float finalFrequency, float prop, long noteDuration, int silentDuration) {
@@ -387,6 +395,8 @@ void setup() {
   pinMode(ECHO, INPUT);
   pinMode(LINE_SENSOR_RIGHT, INPUT);
   pinMode(LINE_SENSOR_LEFT, INPUT);
+  pinMode(BUTTON_OBSTACLE, INPUT_PULLUP);
+  pinMode(BUTTON_LINE, INPUT_PULLUP);
 
 #ifdef ARDUINO_ARCH_ESP32
   ESP32PWM::allocateTimer(0);
@@ -406,9 +416,61 @@ void setup() {
   servo_left.write(speed_stop);
 }
 
+bool lastObstacleState = HIGH;
+bool obstacleState = HIGH;
+unsigned long lastObstacleDebounceTime = 0;
+
+bool lastLineState = HIGH;
+bool lineState = HIGH;
+unsigned long lastLineDebounceTime = 0;
+const unsigned long debounceDelay = 50;
+
+void checkButtons() {
+  bool readingObstacle = digitalRead(BUTTON_OBSTACLE);
+  if (readingObstacle != lastObstacleState) {
+    lastObstacleDebounceTime = millis();
+    lastObstacleState = readingObstacle;
+  }
+  if ((millis() - lastObstacleDebounceTime) > debounceDelay) {
+    if (readingObstacle != obstacleState) {
+      obstacleState = readingObstacle;
+      if (obstacleState == LOW) {
+        doubleBeep(); // Short double beep feedback
+        if (command == "avoidance") {
+          command = "";
+          Stop();
+        } else {
+          command = "avoidance";
+        }
+      }
+    }
+  }
+
+  bool readingLine = digitalRead(BUTTON_LINE);
+  if (readingLine != lastLineState) {
+    lastLineDebounceTime = millis();
+    lastLineState = readingLine;
+  }
+  if ((millis() - lastLineDebounceTime) > debounceDelay) {
+    if (readingLine != lineState) {
+      lineState = readingLine;
+      if (lineState == LOW) {
+        doubleBeep(); // Short double beep feedback
+        if (command == "linefollower") {
+          command = "";
+          Stop();
+        } else {
+          command = "linefollower";
+        }
+      }
+    }
+  }
+}
+
 void loop() {
   checkBluetooth();
   checkSerial();
+  checkButtons();
 
   if (command == "avoidance") {
     Avoidance();
