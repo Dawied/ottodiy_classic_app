@@ -19,6 +19,7 @@
 #if !defined(ARDUINO_ARCH_ESP32)
 #include <SoftwareSerial.h>
 #endif
+#include <EEPROM.h>
 
 #ifdef ARDUINO_ARCH_ESP32
 #include <ESP32Servo.h>
@@ -46,6 +47,11 @@
 
 #define BUTTON_OBSTACLE 20
 #define BUTTON_LINE 21
+
+#define EEPROM_WHEEL_TRIM_LEFT 10
+#define EEPROM_WHEEL_TRIM_RIGHT 11
+#define EEPROM_WHEEL_MAGIC 12
+#define EEPROM_WHEEL_MAGIC_VAL 0x57
 
 // Self-contained sound note definitions (copied from Otto DIY Library)
 #define note_E5  659.26
@@ -375,6 +381,82 @@ void setupBluetooth() {
 Servo servo_right;
 Servo servo_left;
 
+int trim_left = 0;
+int trim_right = 0;
+
+void writeServoLeft(int speed) {
+  int val;
+  if (speed > speed_stop) {
+    val = speed + trim_left;
+  } else if (speed < speed_stop) {
+    val = speed - trim_left;
+  } else {
+    val = speed_stop;
+  }
+  servo_left.write(constrain(val, 0, 180));
+}
+
+void writeServoRight(int speed) {
+  int val;
+  if (speed > speed_stop) {
+    val = speed + trim_right;
+  } else if (speed < speed_stop) {
+    val = speed - trim_right;
+  } else {
+    val = speed_stop;
+  }
+  servo_right.write(constrain(val, 0, 180));
+}
+
+void sendCalibrationData() {
+  String msg = "WHEEL_CALIB:" + String(trim_left) + "," + String(trim_right);
+  bluetooth->write(msg);
+  Serial.println(msg);
+}
+
+void loadCalibration() {
+#ifdef ARDUINO_ARCH_ESP32
+  EEPROM.begin(64);
+#endif
+  if (EEPROM.read(EEPROM_WHEEL_MAGIC) == EEPROM_WHEEL_MAGIC_VAL) {
+    trim_left = (int8_t)EEPROM.read(EEPROM_WHEEL_TRIM_LEFT);
+    trim_right = (int8_t)EEPROM.read(EEPROM_WHEEL_TRIM_RIGHT);
+  } else {
+    trim_left = 0;
+    trim_right = 0;
+  }
+}
+
+void saveCalibration() {
+#ifdef ARDUINO_ARCH_ESP32
+  EEPROM.begin(64);
+#endif
+  EEPROM.write(EEPROM_WHEEL_TRIM_LEFT, (uint8_t)trim_left);
+  EEPROM.write(EEPROM_WHEEL_TRIM_RIGHT, (uint8_t)trim_right);
+  EEPROM.write(EEPROM_WHEEL_MAGIC, EEPROM_WHEEL_MAGIC_VAL);
+#ifdef ARDUINO_ARCH_ESP32
+  EEPROM.commit();
+#endif
+  sendCalibrationData();
+  doubleBeep();
+}
+
+void clearCalibration() {
+  trim_left = 0;
+  trim_right = 0;
+#ifdef ARDUINO_ARCH_ESP32
+  EEPROM.begin(64);
+#endif
+  EEPROM.write(EEPROM_WHEEL_TRIM_LEFT, 0);
+  EEPROM.write(EEPROM_WHEEL_TRIM_RIGHT, 0);
+  EEPROM.write(EEPROM_WHEEL_MAGIC, 0xFF);
+#ifdef ARDUINO_ARCH_ESP32
+  EEPROM.commit();
+#endif
+  sendCalibrationData();
+  doubleBeep();
+}
+
 long ultrasound_distance() {
   long duration, distance;
   digitalWrite(TRIG, LOW);
@@ -412,8 +494,9 @@ void setup() {
 #endif
 
   attachServos();
-  servo_right.write(speed_stop);
-  servo_left.write(speed_stop);
+  loadCalibration();
+  writeServoRight(speed_stop);
+  writeServoLeft(speed_stop);
 }
 
 bool lastObstacleState = HIGH;
@@ -515,8 +598,11 @@ void checkBluetooth() {
   Serial.println(buffer);
 
   int len = strlen(buffer);
-  if (len > 0 && isDigit(buffer[len - 1])) {
-    current_speed_index = buffer[len - 1] - '0';
+  if (strncmp(buffer, "forward", 7) == 0 || strncmp(buffer, "backward", 8) == 0 ||
+      strncmp(buffer, "right", 5) == 0 || strncmp(buffer, "left", 4) == 0) {
+    if (len > 0 && isDigit(buffer[len - 1])) {
+      current_speed_index = buffer[len - 1] - '0';
+    }
   }
 
   if (buffer[0] == 'J') {
@@ -524,11 +610,22 @@ void checkBluetooth() {
     GetCoords(cmd);
   }
 
-  if (strncmp(buffer, "forward", 7) == 0) Forward();
-  else if (strncmp(buffer, "backward", 8) == 0) Backward();
-  else if (strncmp(buffer, "right", 5) == 0) Right();
-  else if (strncmp(buffer, "left", 4) == 0) Left();
-  else if (strncmp(buffer, "stop", 4) == 0) {
+  static bool is_moving = false;
+
+  if (strncmp(buffer, "forward", 7) == 0) {
+    is_moving = true;
+    Forward();
+  } else if (strncmp(buffer, "backward", 8) == 0) {
+    is_moving = true;
+    Backward();
+  } else if (strncmp(buffer, "right", 5) == 0) {
+    is_moving = true;
+    Right();
+  } else if (strncmp(buffer, "left", 4) == 0) {
+    is_moving = true;
+    Left();
+  } else if (strncmp(buffer, "stop", 4) == 0) {
+    is_moving = false;
     command = "";
     Stop();
   } else if (strncmp(buffer, "avoidance_dist", 14) == 0 || strncmp(buffer, "avoid_dist", 10) == 0) {
@@ -565,6 +662,7 @@ void checkBluetooth() {
   else if (strncmp(buffer, "ultrasound", 10) == 0) {
     if (command == "avoidance" || command == "linefollower") {
       command = "";
+      is_moving = false;
       Stop();
     }
     long dist = ultrasound_distance();
@@ -593,6 +691,40 @@ void checkBluetooth() {
     }
     int songName = atoi(p);
     sing(songName);
+  } else if (strncmp(buffer, "wheel_calib_save", 16) == 0 || strncmp(buffer, "save_wheel_calib", 16) == 0) {
+    saveCalibration();
+    Serial.println("Wheel calibration saved to EEPROM");
+  } else if (strncmp(buffer, "wheel_calib_read", 16) == 0 || strncmp(buffer, "get_wheel_calib", 15) == 0) {
+    sendCalibrationData();
+  } else if (strncmp(buffer, "wheel_calib_clear", 17) == 0 || strncmp(buffer, "clear_wheel_calib", 17) == 0) {
+    clearCalibration();
+    Serial.println("Wheel calibration cleared from EEPROM");
+  } else if (strncmp(buffer, "wheel_test", 10) == 0) {
+    command = "";
+    is_moving = true;
+    Forward();
+    delay(3000);
+    is_moving = false;
+    Stop();
+  } else if (strncmp(buffer, "wheel_calib", 11) == 0) {
+    char *p = strchr(buffer, ':');
+    if (!p) p = strchr(buffer, ' ');
+    if (p) {
+      p++;
+      trim_left = atoi(p);
+      char *p2 = strchr(p, ',');
+      if (!p2) p2 = strchr(p, ' ');
+      if (p2) {
+        trim_right = atoi(p2 + 1);
+      }
+    }
+    if (is_moving) {
+      Forward();
+    }
+    Serial.print("Updated wheel trims -> Left: ");
+    Serial.print(trim_left);
+    Serial.print(", Right: ");
+    Serial.println(trim_right);
   }
 }
 
@@ -632,8 +764,8 @@ void joystickRoll(int x, int y) {
       steer = map(x, -50, 50, 30, -30);
     }
     
-    servo_left.write(left_base + steer);
-    servo_right.write(right_base + steer);
+    writeServoLeft(left_base + steer);
+    writeServoRight(right_base + steer);
   }
 }
 
@@ -642,8 +774,8 @@ void Forward() {
   double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
   int left_speed = speed_stop + (speed_left_forward - speed_stop) * factor;
   int right_speed = speed_stop + (speed_right_forward - speed_stop) * factor;
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void Backward() {
@@ -651,8 +783,8 @@ void Backward() {
   double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
   int left_speed = speed_stop + (speed_left_backward - speed_stop) * factor;
   int right_speed = speed_stop + (speed_right_backward - speed_stop) * factor;
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void Right() {
@@ -660,8 +792,8 @@ void Right() {
   double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
   int left_speed = speed_stop + (speed_left_forward - speed_stop) * factor;
   int right_speed = speed_stop + (speed_right_backward - speed_stop) * factor;
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void Left() {
@@ -669,14 +801,14 @@ void Left() {
   double factor = 0.4 + (current_speed_index / 5.0) * 0.6;
   int left_speed = speed_stop + (speed_left_backward - speed_stop) * factor;
   int right_speed = speed_stop + (speed_right_forward - speed_stop) * factor;
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void Stop() {
   attachServos();
-  servo_right.write(speed_stop);
-  servo_left.write(speed_stop);
+  writeServoRight(speed_stop);
+  writeServoLeft(speed_stop);
 }
 
 void Avoidance() {
@@ -712,8 +844,8 @@ void DifferentialTurnLeft() {
     left_speed = speed_stop + (speed_left_backward - speed_stop) * rev_factor;
   }
 
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void DifferentialTurnRight() {
@@ -730,8 +862,8 @@ void DifferentialTurnRight() {
     right_speed = speed_stop + (speed_right_backward - speed_stop) * rev_factor;
   }
 
-  servo_left.write(left_speed);
-  servo_right.write(right_speed);
+  writeServoLeft(left_speed);
+  writeServoRight(right_speed);
 }
 
 void LineFollower() {
@@ -755,14 +887,14 @@ void LineFollower() {
   leftValue = analogRead(LINE_SENSOR_LEFT);
 
   if (rightValue > right_threeshold && leftValue > left_threeshold) {
-    servo_right.write(speed_right_forward + 10);
-    servo_left.write(speed_left_forward - 10);
+    writeServoRight(speed_right_forward + 10);
+    writeServoLeft(speed_left_forward - 10);
   } else if (leftValue > left_threeshold) {
-    servo_right.write(speed_right_forward - 40);
-    servo_left.write(speed_left_forward - 40);
+    writeServoRight(speed_right_forward - 40);
+    writeServoLeft(speed_left_forward - 40);
   } else if (rightValue > right_threeshold) {
-    servo_right.write(speed_right_forward + 30);
-    servo_left.write(speed_left_forward + 30);
+    writeServoRight(speed_right_forward + 30);
+    writeServoLeft(speed_left_forward + 30);
   }
 #endif
 }

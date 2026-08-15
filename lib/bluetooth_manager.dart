@@ -67,6 +67,9 @@ class BluetoothManager extends ChangeNotifier {
   bool get isPollingLineSensor => _isPollingLineSensor;
   Timer? _lineSensorPollTimer;
 
+  String? _lastWheelCalib;
+  String? get lastWheelCalib => _lastWheelCalib;
+
   static const Map<int, String> availableSounds = {
     0: 'No Sound',
     1: 'Connection',
@@ -409,6 +412,10 @@ class BluetoothManager extends ChangeNotifier {
                     notifyListeners();
                   });
                 }
+              } else if (rawData.startsWith("WHEEL_CALIB:")) {
+                _lastWheelCalib = rawData.substring(12).trim();
+                addLog("Wheel calibration received: $_lastWheelCalib");
+                notifyListeners();
               } else {
                 final double? dist = double.tryParse(rawData);
                 if (dist != null) {

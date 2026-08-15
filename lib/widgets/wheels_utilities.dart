@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../bluetooth_manager.dart';
 import '../utils/download_helper.dart';
 import 'small_button.dart';
+import 'wheels_calibration_dialog.dart';
 
 class WheelsUtilities extends StatelessWidget {
   final BluetoothManager btManager;
@@ -56,6 +57,25 @@ class WheelsUtilities extends StatelessWidget {
                       Colors.purpleAccent,
                       () => btManager.toggleLineSensorPolling(),
                       isActive: btManager.isPollingLineSensor,
+                    ),
+                  ),
+                ),
+                Opacity(
+                  opacity: isConnected ? 1.0 : 0.4,
+                  child: AbsorbPointer(
+                    absorbing: !isConnected,
+                    child: SmallButton(
+                      'Calibrate',
+                      Icons.build,
+                      Colors.orangeAccent,
+                      () {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) =>
+                              WheelsCalibrationDialog(btManager: btManager),
+                        );
+                      },
                     ),
                   ),
                 ),
